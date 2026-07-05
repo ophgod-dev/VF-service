@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>시야장애 자동분석 · 후유장해진단서</title>
+<style>
+:root{
+  --bg:#EEF1F0; --panel:#FFFFFF; --ink:#16211C; --sub:#5C6862;
+  --line:#D8DEDB; --accent:#136F5B; --accent-d:#0C5646; --accent-soft:#E1EFEA;
+  --amber:#9A5B12; --amber-soft:#F7EFE0; --red:#9E332C;
+  --shadow:0 2px 6px rgba(16,33,28,.08),0 14px 34px rgba(16,33,28,.10);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);
+  font-family:"Pretendard","Apple SD Gothic Neo","Malgun Gothic",sans-serif;font-size:14px;line-height:1.55}
+button{font-family:inherit;cursor:pointer}
+input,select,textarea{font-family:inherit;font-size:13px;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:6px 8px;background:#fff;width:100%}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent)}
+textarea{resize:vertical}
+.app{display:grid;grid-template-columns:480px 1fr;min-height:100vh}
+@media(max-width:1000px){.app{grid-template-columns:1fr}}
+.tools{border-right:1px solid var(--line);background:var(--panel);height:100vh;overflow-y:auto;padding:0 0 80px}
+@media(max-width:1000px){.tools{height:auto}}
+.masthead{padding:22px 24px 18px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--panel);z-index:5}
+.masthead .eyebrow{font-size:10.5px;letter-spacing:.24em;color:var(--accent);font-weight:800;margin-bottom:5px}
+.masthead h1{margin:0;font-size:18px;font-weight:800;letter-spacing:-.3px}
+.masthead p{margin:6px 0 0;font-size:12px;color:var(--sub)}
+.masthead .actions{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+.btn{border:1px solid var(--line);background:#fff;border-radius:9px;padding:8px 14px;font-size:13px;font-weight:600}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.primary:hover{background:var(--accent-d);color:#fff}
+.btn.small{padding:5px 11px;font-size:12px;border-radius:7px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+section.card{padding:18px 24px;border-bottom:1px solid var(--line)}
+section.card h2{margin:0 0 12px;font-size:11.5px;letter-spacing:.16em;color:var(--sub);font-weight:800}
+.row{display:flex;gap:8px;margin-bottom:8px}
+.row>*{flex:1}
+label.f{display:block;font-size:11px;color:var(--sub);margin-bottom:3px;font-weight:600}
+.hint{font-size:11.5px;color:var(--sub);margin-top:6px}
+.warn{background:var(--amber-soft);border:1px solid #E7D6B4;color:#6E430A;border-radius:8px;padding:9px 11px;font-size:12px;margin-top:10px}
+.tag{display:inline-block;font-size:10px;font-weight:800;padding:1px 8px;border-radius:10px;background:var(--accent-soft);color:var(--accent);margin-left:6px;vertical-align:1px}
+.eye-grid{display:grid;grid-template-columns:52px 1fr;gap:8px;align-items:start;margin-bottom:10px}
+.eye-grid .eye-label{font-weight:700;font-size:13px;padding-top:8px}
+.va-block{border:1px solid var(--line);border-radius:8px;padding:10px;background:#FBFCFC}
+.va-block .row{margin-bottom:6px}
+.diag-item{display:flex;gap:6px;margin-bottom:6px}
+.diag-item input{flex:1}
+.icon-btn{border:1px solid var(--line);background:#fff;border-radius:6px;width:30px;flex:none;font-size:14px;color:var(--sub)}
+.icon-btn:hover{color:var(--red);border-color:var(--red)}
+/* 업로드 */
+.up{display:flex;gap:10px}
+.updrop{flex:1;border:1.5px dashed var(--line);border-radius:10px;padding:14px 10px;text-align:center;color:var(--sub);font-size:12.5px;background:#FBFCFC;cursor:pointer;position:relative;overflow:hidden}
+.updrop:hover{border-color:var(--accent);color:var(--accent)}
+.updrop.has{border-style:solid;border-color:var(--accent);background:var(--accent-soft);color:var(--accent);font-weight:600}
+.updrop .thumb{max-width:100%;max-height:70px;border-radius:4px;margin-top:6px;display:block;margin-left:auto;margin-right:auto}
+.spin{display:inline-block;width:15px;height:15px;border:2px solid var(--accent);border-right-color:transparent;border-radius:50%;animation:sp .7s linear infinite;vertical-align:-3px}
+@keyframes sp{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.spin{animation:none}}
+/* 30-2 격자 */
+.g302{border-collapse:collapse;margin:4px 0}
+.g302 td{padding:1px;text-align:center}
+.g302 input{width:30px;height:26px;text-align:center;padding:0;font-size:12px;border:1px solid var(--line);border-radius:4px}
+.g302 input:focus{outline:2px solid var(--accent);border-color:var(--accent);background:#F4FAF8}
+.g302 input.filled{background:#F0F6F4;font-weight:600}
+.g302 input.zero{color:var(--red)}
+.g302 .spacer{width:30px;height:26px}
+.axisrow td{border-top:1.5px solid #C6D0CC!important}
+.eyehdr{display:flex;justify-content:space-between;align-items:center;margin:12px 0 2px}
+.eyehdr .lbl{font-size:12px;font-weight:700}
+.eyehdr .vs{font-size:11px;color:var(--sub)}
+.vfs-badge{display:inline-block;background:var(--accent);color:#fff;font-weight:700;border-radius:6px;padding:2px 9px;font-size:12px}
+.gridwrap{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start}
+.gridcol{min-width:300px}
+.merid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-top:6px}
+.merid .cell{border:1px solid var(--line);border-radius:6px;padding:2px}
+.merid .cell.ext{background:var(--amber-soft);border-color:#E7D6B4}
+.merid .cell label{display:block;font-size:9.5px;color:var(--sub);text-align:center}
+.polar{display:block;margin:6px auto}
+.calc-live{background:var(--accent-soft);border:1px solid #C2DED6;border-radius:8px;padding:10px 12px;font-size:12.5px;margin-top:10px}
+.calc-live b{color:var(--accent)}
+.check{display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:6px}
+.check input{width:auto}
+details.tbl{border:1px solid var(--line);border-radius:8px;margin-top:10px;background:#fff}
+details.tbl summary{padding:9px 12px;font-size:12.5px;font-weight:700;cursor:pointer;color:var(--accent)}
+details.tbl .inner{padding:0 12px 12px}
+table.edit{width:100%;border-collapse:collapse;font-size:12px}
+table.edit th{font-size:10.5px;color:var(--sub);text-align:left;padding:4px 6px;border-bottom:1px solid var(--line)}
+table.edit td{padding:2px 4px;border-bottom:1px solid #EEF1F0}
+table.edit input{padding:3px 6px;font-size:12px;border-radius:4px}
+/* 문서 */
+.stage{padding:34px;display:flex;flex-direction:column;align-items:center;gap:14px;height:100vh;overflow-y:auto}
+@media(max-width:1000px){.stage{height:auto;padding:16px}}
+.stage-note{font-size:12px;color:var(--sub)}
+.sheet{background:#fff;width:210mm;min-height:297mm;padding:22mm 20mm 20mm;box-shadow:var(--shadow);
+  font-family:"Batang","바탕","Noto Serif KR",serif;font-size:12.5pt;line-height:1.75;color:#000}
+.sheet [contenteditable]:hover{outline:1px dashed #B6C3BE}
+.sheet [contenteditable]:focus{outline:2px solid var(--accent);background:#F5FAF8}
+.sheet h1.doc-title{text-align:center;font-size:22pt;font-weight:700;letter-spacing:0;margin:0 0 34px}
+.kv{display:flex;margin-bottom:12px}
+.kv .k{width:96px;flex:none;letter-spacing:.02em}
+.kv .k.sp2{letter-spacing:2.2em}
+.kv .colon{width:20px;flex:none}
+.kv .v{flex:1;white-space:pre-wrap}
+.formula{display:flex;justify-content:center;align-items:center;gap:10px;margin:14px 0}
+.frac{display:inline-flex;flex-direction:column;align-items:center}
+.frac .num{padding:0 10px;border-bottom:1.2px solid #000}
+.frac .den{padding:0 10px}
+.sig{text-align:right;margin-top:44px;line-height:2.1}
+@media print{
+  body{background:#fff}.tools,.stage-note,.masthead{display:none!important}
+  .app{display:block}.stage{padding:0;height:auto;overflow:visible}
+  .sheet{box-shadow:none;width:auto;min-height:auto;padding:0;margin:0}
+  .sheet [contenteditable]:hover{outline:none}
+  @page{size:A4;margin:22mm 20mm}
+}
+</style>
+</head>
+<body>
+<div class="app">
+<div class="tools">
+  <div class="masthead">
+    <div class="eyebrow">HUMPHREY VF · AUTO ANALYSIS</div>
+    <h1>시야장애 자동분석 진단서</h1>
+    <p>험프리 30-2 결과지를 올리면 dB를 자동 판독해 시야점수·노동력 상실도·진단서를 계산합니다.</p>
+    <div class="actions">
+      <button class="btn primary" onclick="window.print()">인쇄 / PDF</button>
+      <button class="btn primary" id="docxBtn" onclick="exportDocx()">Word(.docx) 저장</button>
+    </div>
+  </div>
+
+  <section class="card">
+    <h2>① 험프리 30-2 결과지 업로드 <span class="tag">AI 자동판독</span></h2>
+    <div class="up">
+      <div class="updrop" id="odDrop" onclick="pick('R')"><b>우안 (OD)</b><div>결과지 이미지 클릭</div><div id="odThumb"></div></div>
+      <div class="updrop" id="osDrop" onclick="pick('L')"><b>좌안 (OS)</b><div>결과지 이미지 클릭</div><div id="osThumb"></div></div>
+    </div>
+    <input type="file" id="odFile" accept="image/*" style="display:none" onchange="onPick(this,'R')">
+    <input type="file" id="osFile" accept="image/*" style="display:none" onchange="onPick(this,'L')">
+    <div style="margin-top:10px">
+      <button class="btn primary small" id="analyzeBtn" onclick="analyze()" disabled>AI 자동 분석</button>
+      <span id="anStatus" style="font-size:12px;color:var(--sub);margin-left:8px"></span>
+    </div>
+    <div class="warn">판독된 dB는 아래 격자에서 <b>직접 수정</b>할 수 있습니다. 진단서 발급 전 반드시 원본과 대조하십시오. 결과지에 환자 성명·등록번호가 있으면 잘라내고 업로드하세요.</div>
+  </section>
+
+  <section class="card">
+    <h2>② 시야점수 · 판정</h2>
+    <div class="row">
+      <div><label class="f">적용 기준</label>
+        <select id="vfsGuide" onchange="render()">
+          <option value="AMA" selected>AMA (미국의사협회)</option>
+          <option value="KAMS">KAMS (대한의학회)</option>
+        </select></div>
+      <div><label class="f">30° 밖 확장</label>
+        <select id="vfsExt" onchange="render()">
+          <option value="on">동축 확장(30° 유효→정상)</option>
+          <option value="off">확장 안 함</option>
+        </select></div>
+    </div>
+    <div class="check"><input type="checkbox" id="useVFS" checked onchange="render()"><span>시야점수를 상실률에 반영 (시효율 = 시력효율 × VFS/100)</span></div>
+    <div class="gridwrap" id="gridEditor"></div>
+    <div id="meridInputs"></div>
+    <div class="calc-live" id="vfsLive">결과지를 분석하면 시야점수가 표시됩니다.</div>
+  </section>
+
+  <section class="card">
+    <h2>③ 인적사항</h2>
+    <div class="row">
+      <div><label class="f">문서 제목</label><select id="docTitle" onchange="render()"><option>후유장해진단서</option><option>장애감정서</option><option>후유장애진단서</option></select></div>
+      <div><label class="f">감정일</label><input type="date" id="issueDate" onchange="render()"></div>
+    </div>
+    <div class="row">
+      <div style="flex:1.4"><label class="f">성명</label><input id="pName" placeholder="홍 길 동" oninput="render()"></div>
+      <div><label class="f">성별</label><select id="pSex" onchange="render()"><option>남자</option><option>여자</option></select></div>
+      <div><label class="f">나이</label><input id="pAge" type="number" oninput="state.ageManual=true;render()"></div>
+    </div>
+    <div class="row"><div><label class="f">생년월일</label><input type="date" id="pBirth" onchange="state.ageManual=false;render()"></div></div>
+    <div class="row"><div><label class="f">주소</label><input id="pAddr" oninput="render()"></div></div>
+  </section>
+
+  <section class="card">
+    <h2>④ 병명</h2>
+    <div id="diagList"></div>
+    <button class="btn small" onclick="state.diagnoses.push({name:'',eye:'우안'});renderDiag();render()">+ 병명 추가</button>
+  </section>
+
+  <section class="card">
+    <h2>⑤ 자각시력 · 굴절</h2>
+    <div id="vaInputs"></div>
+    <div class="hint">표기: 나안 (교정 x sph±S = cyl±C(축))</div>
+  </section>
+
+  <section class="card">
+    <h2>⑥ 증상</h2>
+    <textarea id="symptomText" rows="3" oninput="render()" placeholder="상기자는 상기병증으로 인한 우안의 시력장애가 있습니다."></textarea>
+    <button class="btn small" style="margin-top:6px" onclick="suggestSymptom()">병명 기반 문구 생성</button>
+  </section>
+
+  <section class="card">
+    <h2>⑦ 상실도 계산</h2>
+    <div class="check"><input type="checkbox" id="useMcbride" checked onchange="render()"><span><b>맥브라이드</b> (연령 보정)</span></div>
+    <div class="check"><input type="checkbox" id="useGukbae" checked onchange="render()"><span><b>국가배상법 [별표 2]</b> 등급</span></div>
+    <div class="row" style="margin-top:8px">
+      <div><label class="f">연령 보정 방향</label>
+        <select id="ageDir" onchange="render()"><option value="-">감산 (−)</option><option value="+">가산 (+)</option></select></div>
+    </div>
+    <div class="row"><div><label class="f">국배법 등급(자동, 수정 가능)</label><select id="gukbaeOverride" onchange="state.gukbaeManual=this.value;render()"></select></div></div>
+    <div class="calc-live" id="calcLive">—</div>
+    <div style="margin-top:10px">
+      <label class="f">계산 내역</label>
+      <table class="edit" id="calcTrace"></table>
+      <div class="check" style="margin-top:8px"><input type="checkbox" id="printTrace" onchange="render()"><span>계산 내역을 진단서 하단 [산출 근거]로 인쇄</span></div>
+    </div>
+    <details class="tbl"><summary>계산표 수정 (시력→효율 / 맥브라이드 / 국배법)</summary>
+      <div class="inner">
+        <label class="f" style="margin-top:6px">① 시력 → 시력효율 상실(%)</label><table class="edit" id="vaTable"></table>
+        <label class="f" style="margin-top:10px">② 양안 시효율상실 → 맥브라이드(%)</label><table class="edit" id="mcTable"></table>
+        <label class="f" style="margin-top:10px">③ 국배법 별표2</label><table class="edit" id="gkTable"></table>
+        <div class="warn">기본 표는 참고용 임시값이 포함됩니다. 채택 문헌으로 검증·확정하십시오.</div>
+      </div></details>
+  </section>
+
+  <section class="card">
+    <h2>⑧ 발급 정보</h2>
+    <div class="row"><div><label class="f">기관·과</label><input id="hosp" value="전남대학교병원 안과" oninput="render()"></div></div>
+    <div class="row">
+      <div><label class="f">의사 성명</label><input id="docName" oninput="render()"></div>
+      <div><label class="f">면허번호</label><input id="docLic" oninput="render()"></div>
+    </div>
+  </section>
+</div>
+
+<div class="stage">
+  <div class="stage-note">문서를 클릭해 직접 수정할 수 있습니다(입력을 바꾸면 자동 문구가 다시 채워지므로 직접 수정은 마지막에). 인쇄 시 이 문서만 출력됩니다.</div>
+  <div class="sheet" id="sheet">
+    <h1 class="doc-title" id="dTitle">후유장해진단서</h1>
+    <div class="kv"><div class="k"><span class="sp2">성</span>명</div><div class="colon">:</div><div class="v" id="dName" contenteditable></div></div>
+    <div class="kv"><div class="k">생년월일</div><div class="colon">:</div><div class="v" id="dBirth" contenteditable></div></div>
+    <div class="kv"><div class="k"><span class="sp2">주</span>소</div><div class="colon">:</div><div class="v" id="dAddr" contenteditable></div></div>
+    <div class="kv" style="margin-top:22px"><div class="k"><span class="sp2">병</span>명</div><div class="colon">:</div><div class="v" id="dDiag" contenteditable></div></div>
+    <div class="kv"><div class="k">자각시력</div><div class="colon">:</div><div class="v" id="dVA" contenteditable></div></div>
+    <div class="kv" id="dVFRow" style="display:none"><div class="k">시야검사</div><div class="colon">:</div><div class="v" id="dVF" contenteditable></div></div>
+    <div class="kv" style="margin-top:22px"><div class="k"><span class="sp2">증</span>상</div><div class="colon">:</div><div class="v" id="dSymptom" contenteditable></div></div>
+    <div class="kv" style="margin-top:22px"><div class="k">노동력 상실도</div><div class="colon">:</div><div class="v" id="dMcbride" contenteditable></div></div>
+    <div class="formula" id="dFormula"></div>
+    <div class="kv"><div class="k"></div><div class="colon"></div><div class="v" id="dGukbae" contenteditable></div></div>
+    <div class="kv"><div class="k"></div><div class="colon"></div><div class="v" contenteditable>안과분야에서 노동력 상실도의 판정에 있어서 직업별로 산정된 문헌이 없습니다.
+위와 같이 감정합니다.</div></div>
+    <div class="sig">
+      <div id="dDate" contenteditable></div><div id="dHosp" contenteditable></div>
+      <div><span id="dDoc" contenteditable></span> (인)</div>
+      <div>(의사면허번호:<span id="dLic" contenteditable></span>)</div>
+    </div>
+    <div id="dTrace" style="display:none;margin-top:34px;border-top:1px solid #000;padding-top:14px;font-size:10.5pt">
+      <div style="font-weight:700;margin-bottom:8px">[ 산출 근거 ]</div>
+      <table id="dTraceTable" style="width:100%;border-collapse:collapse;font-size:10pt"></table>
+      <div style="margin-top:8px;font-size:9pt;color:#333">※ 시야점수(VFS)는 험프리 30-2의 10 dB 유사아이솝터 반경을 지정 경선에서 측정하여 산출(신진희·박성희, 대한안과학회지 2013;54:1907). 시력→시효율표·맥브라이드표는 채택 문헌에 따라 검증·확정한 값이며 중간값은 선형 보간함.</div>
+    </div>
+  </div>
+</div>
+</div>
+
+<script>
+/* ══════════ 기하 · 점수 상수 ══════════ */
+const MERID={KAMS:[0,45,90,135,180,210,240,270,300,330],AMA:[25,65,115,155,195,225,255,285,315,345]};
+const NORM={AMA:{R:[70,50,50,60,60,60,60,70,70,70],L:[60,50,50,70,70,70,70,60,60,60]},
+            KAMS:{R:[80,60,50,60,60,60,60,70,70,70],L:[60,60,50,60,80,70,70,70,60,60]}};
+const YROWS=[27,21,15,9,3,-3,-9,-15,-21,-27], XCOLS=[-27,-21,-15,-9,-3,3,9,15,21,27], ROWLEN=[4,6,8,10,10,10,10,8,6,4];
+const HFA_MAX=30;
+const rowColStart=n=>(10-n)/2;
+const blankGrid=()=>YROWS.map(()=>Array(10).fill(null));
+function cellValid(r,c){ if(r<0||r>9) return false; const s=rowColStart(ROWLEN[r]); return c>=s&&c<s+ROWLEN[r]; }
+function placeRow(vals){const n=vals.length,s=rowColStart(n),o=Array(10).fill(null);
+  for(let i=0;i<n&&i<10;i++){const v=vals[i];o[s+i]=(v==null||v===""||Number.isNaN(parseFloat(v)))?(v===0||v==="0"?0:null):parseFloat(v);}return o;}
+function scoreAMA(r){ if(r<=0)return 0; return r<=10?r/2:5+(r-10)/10; }
+function scoreKAMS(r){ if(r<=0)return 0; if(r<=10)return r*0.4; if(r<=20)return 4+(r-10)/5; return 6+(r-20)/10; }
+const scoreFn=g=>g==="AMA"?scoreAMA:scoreKAMS;
+function gridToRadii(guide,grid,thr=10,sector=23){
+  const pts=[]; for(let r=0;r<10;r++)for(let c=0;c<10;c++){const v=grid[r][c]; if(v==null)continue; pts.push([XCOLS[c],YROWS[r],v]);}
+  return MERID[guide].map(m=>{let best=0; for(const[x,y,v]of pts){if(v<thr)continue;const e=Math.hypot(x,y);if(!e)continue;
+    let a=(Math.atan2(y,x)*180/Math.PI+360)%360,d=Math.abs(((a-m+180)%360+360)%360-180); if(d<=sector)best=Math.max(best,e);}
+    return Math.min(30,Math.round(best));});
+}
+function computeVFS(guide,eyeKey,radii,extOn){
+  const f=scoreFn(guide),norm=NORM[guide][eyeKey]; let sum=0; const per=[];
+  for(let i=0;i<10;i++){let r=parseFloat(radii[i]); if(!Number.isFinite(r))r=0; let used=r,sub=false;
+    if(extOn&&r>=HFA_MAX){used=norm[i];sub=true;} const s=f(used); per.push({ang:MERID[guide][i],r:used,s,substituted:sub}); sum+=s;}
+  return {vfs:Math.min(100,sum),per,capped:sum>100};
+}
+function hasGrid(eyeKey){ return state.dbGrid[eyeKey].some(row=>row.some(v=>v!=null)); }
+function eyeVFS(guide,eyeKey,extOn){
+  if(!hasGrid(eyeKey)) return {loaded:false,vfs:100,radii:Array(10).fill(0),per:[]};
+  const radii=gridToRadii(guide,state.dbGrid[eyeKey]); const c=computeVFS(guide,eyeKey,radii,extOn);
+  return {loaded:true,vfs:c.vfs,radii,per:c.per,capped:c.capped};
+}
+
+/* ══════════ 상태 ══════════ */
+const state={
+  ageManual:false, gukbaeManual:"auto",
+  diagnoses:[{name:"",eye:"우안"}],
+  va:{farR:bVA(),farL:bVA(),nearR:bVA(),nearL:bVA()},
+  dbGrid:{R:blankGrid(),L:blankGrid()},
+  upload:{R:null,L:null},
+  vaTable:[[1.0,0],[0.9,5],[0.8,10],[0.7,15],[0.6,20],[0.5,25],[0.4,35],[0.3,45],[0.2,55],[0.15,62],[0.1,70],[0.08,75],[0.06,80],[0.05,85],[0.04,88],[0.03,90],[0.02,92],[0.01,95],[0.0,100]],
+  mcTable:[[0,0],[25,24],[50,50],[75,75],[100,100]],
+  gkTable:[
+    [1,1,"R===0 && L===0",100,"두 눈이 실명된 사람"],
+    [2,1,"(W===0) && B<=0.02 && B>0",100,"한 눈이 실명되고 다른 눈의 시력이 0.02 이하로 된 사람"],
+    [2,2,"R>0 && L>0 && R<=0.02 && L<=0.02",100,"두 눈의 시력이 각각 0.02 이하로 된 사람"],
+    [3,1,"W===0 && B<=0.06 && B>0.02",100,"한 눈이 실명되고 다른 눈의 시력이 0.06 이하로 된 사람"],
+    [4,1,"R>0 && L>0 && R<=0.06 && L<=0.06",90,"두 눈의 시력이 각각 0.06 이하로 된 사람"],
+    [5,1,"W===0 && B<=0.1 && B>0.06",80,"한 눈이 실명되고 다른 눈의 시력이 0.1 이하로 된 사람"],
+    [6,1,"R>0 && L>0 && R<=0.1 && L<=0.1",70,"두 눈의 시력이 각각 0.1 이하로 된 사람"],
+    [7,1,"W===0 && B<=0.6 && B>0.1",60,"한 눈이 실명되고 다른 눈의 시력이 0.6 이하로 된 사람"],
+    [8,1,"W===0 || W<=0.02",50,"한 눈이 실명되거나 한 눈의 시력이 0.02 이하로 된 사람"],
+    [9,1,"R>0 && L>0 && R<=0.6 && L<=0.6",40,"두 눈의 시력이 각각 0.6 이하로 된 사람"],
+    [9,2,"W<=0.06 && W>0.02",40,"한 눈의 시력이 0.06 이하로 된 사람"],
+    [10,1,"W<=0.1 && W>0.06",30,"한 눈의 시력이 0.1 이하로 된 사람"],
+    [13,1,"W<=0.6 && W>0.1",10,"한 눈의 시력이 0.6 이하로 된 사람"]
+  ]
+};
+function bVA(){return {mode:"수치",naked:"",corr:"",s:"",c:"",ax:""}}
+const $=id=>document.getElementById(id);
+const fmt=n=>Number.isFinite(n)?(Math.round(n*10)/10).toString():"—";
+
+/* ══════════ 업로드 · AI 분석 ══════════ */
+function pick(eye){ $(eye==="R"?"odFile":"osFile").click(); }
+function onPick(inp,eye){
+  const f=inp.files[0]; if(!f) return;
+  const rd=new FileReader();
+  rd.onload=()=>{ state.upload[eye]=rd.result;
+    const drop=$(eye==="R"?"odDrop":"osDrop"); drop.classList.add("has");
+    $(eye==="R"?"odThumb":"osThumb").innerHTML=`<img class="thumb" src="${rd.result}">`;
+    $("analyzeBtn").disabled=!(state.upload.R||state.upload.L);
+  };
+  rd.readAsDataURL(f);
+}
+async function analyze(){
+  const st=$("anStatus"), btn=$("analyzeBtn"); btn.disabled=true;
+  const eyes=["R","L"].filter(e=>state.upload[e]);
+  let done=[];
+  for(const eye of eyes){
+    st.innerHTML=`<span class="spin"></span> ${eye==="R"?"우안":"좌안"} 판독 중…`;
+    try{
+      const r=await fetch("/api/analyze",{method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({imageDataUrl:state.upload[eye],eye})});
+      const data=await r.json();
+      if(!r.ok) throw new Error(data.error||("오류 "+r.status));
+      if(Array.isArray(data.grid)) applyGridRows(eye,data.grid), done.push(eye==="R"?"우안":"좌안");
+    }catch(e){ st.textContent="분석 실패: "+(e.message||e); btn.disabled=false; return; }
+  }
+  buildGridEditor(true); render();
+  st.textContent = done.length? `분석 완료 (${done.join("·")}) — 격자에서 원본과 대조·수정하세요.` : "결과 없음.";
+  btn.disabled=false;
+}
+function applyGridRows(eyeKey,rows){
+  const g=blankGrid();
+  rows.slice(0,10).forEach((row,r)=>{ if(!Array.isArray(row))return; const want=ROWLEN[r]; let v=row.slice();
+    if(v.length>want)v=v.slice(0,want); while(v.length<want)v.push(null); g[r]=placeRow(v); });
+  state.dbGrid[eyeKey]=g;
+}
+
+/* ══════════ dB 격자 편집기 (검증·수정용) ══════════ */
+const VALIDCELLS=(()=>{const a=[];for(let r=0;r<10;r++){const s=rowColStart(ROWLEN[r]);for(let k=0;k<ROWLEN[r];k++)a.push([r,s+k]);}return a;})();
+const inpId=(eye,r,c)=>`db_${eye}_${r}_${c}`;
+function buildGridEditor(force){
+  const host=$("gridEditor");
+  const anyGrid=hasGrid("R")||hasGrid("L");
+  if(!anyGrid){ host.innerHTML=`<div class="hint">결과지를 업로드하고 <b>AI 자동 분석</b>을 누르면 dB 격자가 여기 표시됩니다.</div>`; host.dataset.built=""; return; }
+  if(host.dataset.built==="1" && !force){ refreshGridDisplay(); return; }
+  const col=(eye,label)=>{
+    if(!hasGrid(eye)) return "";
+    let rows="";
+    for(let r=0;r<10;r++){ let tds="";
+      for(let c=0;c<10;c++){ if(!cellValid(r,c)){tds+='<td><div class="spacer"></div></td>';continue;}
+        const v=state.dbGrid[eye][r][c];
+        tds+=`<td><input id="${inpId(eye,r,c)}" inputmode="numeric" maxlength="2" value="${v==null?'':v}"
+          oninput="onDbInput('${eye}',${r},${c},this.value)" onkeydown="gridNav(event,'${eye}',${r},${c})"></td>`; }
+      rows+=`<tr class="${r===5?'axisrow':''}">${tds}</tr>`; }
+    return `<div class="gridcol"><div class="eyehdr"><span class="lbl">${label}</span><span class="vs" id="vsbadge_${eye}"></span></div>
+      <table class="g302"><tbody>${rows}</tbody></table></div>`;
+  };
+  host.innerHTML=col("R","우안 (OD)")+col("L","좌안 (OS)"); host.dataset.built="1"; refreshGridDisplay();
+}
+function onDbInput(eye,r,c,val){
+  const v=val.trim()===""?null:parseInt(val,10);
+  state.dbGrid[eye][r][c]=(v==null||Number.isNaN(v))?null:v;
+  const el=$(inpId(eye,r,c)); el.classList.toggle("filled",state.dbGrid[eye][r][c]!=null&&state.dbGrid[eye][r][c]!==0);
+  el.classList.toggle("zero",state.dbGrid[eye][r][c]===0); render();
+}
+function gridNav(e,eye,r,c){
+  const move=(nr,nc)=>{const t=$(inpId(eye,nr,nc)); if(t){t.focus();t.select&&t.select();e.preventDefault();return true;}return false;};
+  const idx=VALIDCELLS.findIndex(p=>p[0]===r&&p[1]===c);
+  if(e.key==="Enter"||e.key==="ArrowRight"){const p=VALIDCELLS[(idx+1)%VALIDCELLS.length];move(p[0],p[1]);}
+  else if(e.key==="ArrowLeft"){const p=VALIDCELLS[(idx-1+VALIDCELLS.length)%VALIDCELLS.length];move(p[0],p[1]);}
+  else if(e.key==="ArrowUp"){for(let nr=r-1;nr>=0;nr--)if(cellValid(nr,c)){move(nr,c);break;}}
+  else if(e.key==="ArrowDown"){for(let nr=r+1;nr<=9;nr++)if(cellValid(nr,c)){move(nr,c);break;}}
+}
+function refreshGridDisplay(){
+  const g=$("vfsGuide").value, extOn=$("vfsExt").value==="on";
+  for(const eye of ["R","L"]){
+    if(!hasGrid(eye)) continue;
+    for(const [r,c] of VALIDCELLS){ const el=$(inpId(eye,r,c)); if(!el)continue;
+      const v=state.dbGrid[eye][r][c];
+      if(document.activeElement!==el){const cur=el.value.trim()===""?null:parseInt(el.value,10); if(cur!==v)el.value=v==null?'':v;}
+      el.classList.toggle("filled",v!=null&&v!==0); el.classList.toggle("zero",v===0); }
+    const ev=eyeVFS(g,eye,extOn); const b=$("vsbadge_"+eye);
+    if(b) b.innerHTML=`VFS <span class="vfs-badge">${fmt(ev.vfs)}점</span>`;
+  }
+}
+
+/* ══════════ 파생 반경 · 폴라 ══════════ */
+function renderMerid(){
+  const g=$("vfsGuide").value, extOn=$("vfsExt").value==="on"; const angs=MERID[g];
+  const block=(eye,label)=>{ const ev=eyeVFS(g,eye,extOn); if(!ev.loaded)return "";
+    const cells=angs.map((a,i)=>{const p=ev.per[i];
+      return `<div class="cell ${p.substituted?'ext':''}"><label>${a}°</label>
+        <div style="text-align:center;padding:3px 0;font-weight:600;color:${p.substituted?'#8A5410':'var(--accent)'}">${fmt(p.r)}°</div></div>`;}).join("");
+    const ext=ev.per.filter(p=>p.substituted).length;
+    return `<div style="margin-top:10px"><label class="f">${label} 자동 반경 → VFS <span class="vfs-badge">${fmt(ev.vfs)}점</span>${ext?` · 확장 ${ext}경선`:''}</label>
+      ${polarSVG(ev)}<div class="merid">${cells}</div></div>`;};
+  $("meridInputs").innerHTML=block("R","우안(OD)")+block("L","좌안(OS)");
+}
+function polarSVG(ev){
+  const cx=70,cy=70,R=60,md=90;
+  const pts=ev.per.map(p=>{const rad=p.ang*Math.PI/180,rr=Math.min(p.r,md)/md*R;return [cx+rr*Math.cos(rad),cy-rr*Math.sin(rad),p.substituted];});
+  const poly=pts.map(p=>p[0]+","+p[1]).join(" ");
+  const rings=[30,60,90].map(d=>`<circle cx="${cx}" cy="${cy}" r="${d/md*R}" fill="none" stroke="${d===30?'#B4690E':'#E4EBE8'}" stroke-dasharray="${d===30?'3 2':'0'}"/>`).join("");
+  const spokes=ev.per.map(p=>{const rad=p.ang*Math.PI/180;return `<line x1="${cx}" y1="${cy}" x2="${cx+R*Math.cos(rad)}" y2="${cy-R*Math.sin(rad)}" stroke="#EBEFED"/>`;}).join("");
+  return `<svg class="polar" width="140" height="140" viewBox="0 0 140 140">${rings}${spokes}
+    <polygon points="${poly}" fill="rgba(19,111,91,.15)" stroke="var(--accent)" stroke-width="1.5"/>
+    ${pts.map(p=>`<circle cx="${p[0]}" cy="${p[1]}" r="2.4" fill="${p[2]?'#B4690E':'var(--accent)'}"/>`).join("")}
+    <text x="4" y="12" font-size="8" fill="#B4690E">···30° 측정한계</text></svg>`;
+}
+
+/* ══════════ 병명 / 시력 ══════════ */
+function renderDiag(){
+  $("diagList").innerHTML=state.diagnoses.map((d,i)=>`<div class="diag-item">
+    <input placeholder="예: 시신경위축" value="${(d.name||'').replace(/"/g,'&quot;')}" oninput="state.diagnoses[${i}].name=this.value;render()">
+    <select style="width:84px;flex:none" onchange="state.diagnoses[${i}].eye=this.value;render()">
+      ${["우안","좌안","양안",""].map(e=>`<option ${e===d.eye?"selected":""}>${e}</option>`).join("")}</select>
+    <button class="icon-btn" onclick="state.diagnoses.splice(${i},1);renderDiag();render()">×</button></div>`).join("");
+}
+const VA_MODES=["수치","안전수동","안전수지","광각","영(零)"];
+function vaBlock(key,label){const v=state.va[key];
+  return `<div class="eye-grid"><div class="eye-label">${label}</div><div class="va-block">
+    <div class="row"><div style="flex:1.2"><label class="f">판정</label>
+      <select onchange="state.va.${key}.mode=this.value;renderVA();render()">${VA_MODES.map(m=>`<option ${m===v.mode?"selected":""}>${m}</option>`).join("")}</select></div>
+      ${v.mode==="수치"?`<div><label class="f">나안</label><input value="${v.naked}" oninput="state.va.${key}.naked=this.value;render()"></div>
+      <div><label class="f">교정</label><input value="${v.corr}" oninput="state.va.${key}.corr=this.value;render()"></div>`:""}</div>
+    ${v.mode==="수치"?`<div class="row">
+      <div><label class="f">Sph</label><input value="${v.s}" placeholder="+0.25" oninput="state.va.${key}.s=this.value;render()"></div>
+      <div><label class="f">Cyl</label><input value="${v.c}" placeholder="+0.50" oninput="state.va.${key}.c=this.value;render()"></div>
+      <div><label class="f">축</label><input value="${v.ax}" placeholder="180" oninput="state.va.${key}.ax=this.value;render()"></div></div>`:""}
+  </div></div>`;}
+function renderVA(){$("vaInputs").innerHTML=
+  `<label class="f">원거리</label>`+vaBlock("farR","우안")+vaBlock("farL","좌안")+
+  `<label class="f" style="margin-top:8px">근거리</label>`+vaBlock("nearR","우안")+vaBlock("nearL","좌안");}
+function signD(x){x=(x||"").trim();if(!x)return "";return /^[+\-]/.test(x)?x:"+"+x;}
+function vaDisplay(v){ if(v.mode==="영(零)")return "영 (零)"; if(v.mode!=="수치")return v.mode+" (교정불가)";
+  let s=v.naked||""; if(v.corr){s+=` (${v.corr}`; if(v.s||v.c)s+=` x sph${signD(v.s)}D = cyl${signD(v.c)}D(${v.ax||""})`; s+=")";} return s||"—";}
+function vaNumeric(v){if(v.mode!=="수치")return 0;const n=parseFloat(v.corr||v.naked);return Number.isFinite(n)?n:NaN;}
+
+/* ══════════ 보간 · 계산 ══════════ */
+function interp(pairs,x){const p=[...pairs].sort((a,b)=>a[0]-b[0]);
+  if(x<=p[0][0])return p[0][1]; if(x>=p[p.length-1][0])return p[p.length-1][1];
+  for(let i=0;i<p.length-1;i++){const[x0,y0]=p[i],[x1,y1]=p[i+1];if(x>=x0&&x<=x1)return x1===x0?y0:y0+(y1-y0)*(x-x0)/(x1-x0);}return NaN;}
+function compute(){
+  const T=[]; const R=vaNumeric(state.va.farR),L=vaNumeric(state.va.farL);
+  if(!Number.isFinite(R)||!Number.isFinite(L))return null;
+  const g=$("vfsGuide").value,extOn=$("vfsExt").value==="on",useVFS=$("useVFS").checked;
+  T.push(["입력 교정시력(원거리)",`우안 ${R} · 좌안 ${L}`]);
+  const vaLossR=interp(state.vaTable,R),vaLossL=interp(state.vaTable,L);
+  let effR=100-vaLossR,effL=100-vaLossL;
+  T.push(["① 시력 → 시력효율",`우안 ${fmt(effR)}% · 좌안 ${fmt(effL)}%`]);
+  let vfsR=null,vfsL=null;
+  if(useVFS){const cR=eyeVFS(g,"R",extOn),cL=eyeVFS(g,"L",extOn); vfsR=cR.vfs;vfsL=cL.vfs;
+    const pR=effR,pL=effL; effR=effR*vfsR/100; effL=effL*vfsL/100;
+    T.push([`② 시야점수 VFS (${g}${extOn?'·확장':''})`,`우안 ${fmt(vfsR)}점${cR.loaded?'':'(격자없음→100)'} · 좌안 ${fmt(vfsL)}점${cL.loaded?'':'(격자없음→100)'}`]);
+    T.push(["② 시효율=시력효율×VFS/100",`우안 ${fmt(pR)}×${fmt(vfsR)}%=${fmt(effR)}% · 좌안 ${fmt(pL)}×${fmt(vfsL)}%=${fmt(effL)}%`]);
+  } else T.push(["② 시야점수","반영 안 함"]);
+  const lossR=100-effR,lossL=100-effL;
+  T.push(["각 눈 시효율 상실",`우안 ${fmt(lossR)}% · 좌안 ${fmt(lossL)}%`]);
+  const better=Math.max(effR,effL),worse=Math.min(effR,effL),binoEff=(3*better+worse)/4,binoLoss=100-binoEff;
+  T.push(["③ 양안 시효율 (3×건안+환안)/4",`${fmt(binoEff)}% → 상실 ${fmt(binoLoss)}%`]);
+  const mc=interp(state.mcTable,binoLoss);
+  T.push(["④ 맥브라이드 노동력 상실",`${fmt(binoLoss)}% → ${fmt(mc)}%`]);
+  const age=parseFloat($("pAge").value),dir=$("ageDir").value; let adj=mc,adjTerm=0;
+  if(Number.isFinite(age)&&age>30){adjTerm=mc*0.5*(age-30)/100;adj=dir==="-"?mc-adjTerm:mc+adjTerm;
+    T.push(["⑤ 연령 보정 "+(dir==="-"?"(감산)":"(가산)"),`${fmt(mc)} ${dir} ${fmt(mc)}×0.5×(${age}−30)/100 = ${fmt(adj)}%`]);}
+  else T.push(["⑤ 연령 보정","해당 없음"]);
+  const B=Math.max(R,L),W=Math.min(R,L); let gk=null;
+  for(const row of state.gkTable){try{if(Function("R","L","B","W",`return (${row[2]});`)(R,L,B,W)){gk=row;break;}}catch(e){}}
+  if(state.gukbaeManual!=="auto"){const[gg,hh]=state.gukbaeManual.split("-").map(Number);gk=state.gkTable.find(r=>r[0]===gg&&r[1]===hh)||gk;
+    T.push(["국배법 등급","수동 지정: "+(gk?`제${gk[0]}급 ${gk[1]}항 (${gk[3]}%)`:"—")]);}
+  else if(gk) T.push(["국배법 별표2 (양호안 "+fmt(B)+"·불량안 "+fmt(W)+")",`제${gk[0]}급 ${gk[1]}항 → ${gk[3]}%`]);
+  return {R,L,g,extOn,useVFS,effR,effL,lossR,lossL,binoLoss,mc,age,dir,adjTerm,adj,gk,trace:T};
+}
+
+/* ══════════ 표 편집 ══════════ */
+function renderTables(){
+  $("vaTable").innerHTML="<tr><th>교정시력</th><th>상실(%)</th><th></th></tr>"+state.vaTable.map((r,i)=>`<tr>
+    <td><input value="${r[0]}" oninput="state.vaTable[${i}][0]=parseFloat(this.value)||0;render()"></td>
+    <td><input value="${r[1]}" oninput="state.vaTable[${i}][1]=parseFloat(this.value)||0;render()"></td>
+    <td><button class="icon-btn" onclick="state.vaTable.splice(${i},1);renderTables();render()">×</button></td></tr>`).join("");
+  $("mcTable").innerHTML="<tr><th>양안상실(%)</th><th>맥브라이드(%)</th><th></th></tr>"+state.mcTable.map((r,i)=>`<tr>
+    <td><input value="${r[0]}" oninput="state.mcTable[${i}][0]=parseFloat(this.value)||0;render()"></td>
+    <td><input value="${r[1]}" oninput="state.mcTable[${i}][1]=parseFloat(this.value)||0;render()"></td>
+    <td><button class="icon-btn" onclick="state.mcTable.splice(${i},1);renderTables();render()">×</button></td></tr>`).join("");
+  $("gkTable").innerHTML="<tr><th>급</th><th>항</th><th>조건</th><th>%</th><th>문구</th><th></th></tr>"+state.gkTable.map((r,i)=>`<tr>
+    <td style="width:30px"><input value="${r[0]}" oninput="state.gkTable[${i}][0]=parseInt(this.value)||0;render()"></td>
+    <td style="width:30px"><input value="${r[1]}" oninput="state.gkTable[${i}][1]=parseInt(this.value)||0;render()"></td>
+    <td><input value="${(r[2]||'').replace(/"/g,'&quot;')}" oninput="state.gkTable[${i}][2]=this.value;render()"></td>
+    <td style="width:42px"><input value="${r[3]}" oninput="state.gkTable[${i}][3]=parseFloat(this.value)||0;render()"></td>
+    <td><input value="${(r[4]||'').replace(/"/g,'&quot;')}" oninput="state.gkTable[${i}][4]=this.value;render()"></td>
+    <td><button class="icon-btn" onclick="state.gkTable.splice(${i},1);renderTables();render()">×</button></td></tr>`).join("");
+}
+function suggestSymptom(){const eyes=[...new Set(state.diagnoses.map(d=>d.eye).filter(Boolean))];
+  const s=eyes.length===1?eyes[0]:"양안"; $("symptomText").value=`상기자는 상기병증으로 인한 ${s}의 시력장애가 있습니다.`; render();}
+function calcAge(){const b=$("pBirth").value,d=$("issueDate").value;if(!b||!d)return NaN;
+  const bd=new Date(b),id=new Date(d);let a=id.getFullYear()-bd.getFullYear();
+  if(id.getMonth()<bd.getMonth()||(id.getMonth()===bd.getMonth()&&id.getDate()<bd.getDate()))a--;return a;}
+
+/* ══════════ 렌더 ══════════ */
+function render(){
+  if(!state.ageManual){const a=calcAge();if(Number.isFinite(a))$("pAge").value=a;}
+  buildGridEditor(); refreshGridDisplay(); renderMerid();
+  const c=compute();
+  const g=$("vfsGuide").value,extOn=$("vfsExt").value==="on";
+  const cR=eyeVFS(g,"R",extOn),cL=eyeVFS(g,"L",extOn);
+  $("vfsLive").innerHTML=`${g}${extOn?'·확장':''} 시야점수 → 우안 <b>${cR.loaded?fmt(cR.vfs)+'점':'미분석'}</b> · 좌안 <b>${cL.loaded?fmt(cL.vfs)+'점':'미분석'}</b>`;
+
+  const sel=$("gukbaeOverride"),cur=state.gukbaeManual;
+  sel.innerHTML=`<option value="auto">자동${c&&c.gk?` (제${c.gk[0]}급 ${c.gk[1]}항)`:""}</option>`+
+    state.gkTable.map(r=>`<option value="${r[0]}-${r[1]}" ${cur===r[0]+"-"+r[1]?"selected":""}>제${r[0]}급 ${r[1]}항 (${r[3]}%)</option>`).join(""); sel.value=cur;
+
+  if(c){ $("calcLive").innerHTML=`우안 상실 <b>${fmt(c.lossR)}%</b>·좌안 <b>${fmt(c.lossL)}%</b> → 양안 <b>${fmt(c.binoLoss)}%</b> → 맥브라이드 <b>${fmt(c.mc)}%</b>`+
+      (c.adjTerm?` → 보정 <b>${fmt(c.adj)}%</b>`:"")+(c.gk?`<br>국배법 <b>제${c.gk[0]}급 ${c.gk[1]}항 → ${c.gk[3]}%</b>`:"");
+    $("calcTrace").innerHTML=c.trace.map(r=>`<tr><td style="width:42%;font-weight:600;color:var(--accent);vertical-align:top">${r[0]}</td><td>${r[1]}</td></tr>`).join("");
+  } else { $("calcLive").textContent="자각시력을 입력하면 계산됩니다."; $("calcTrace").innerHTML="<tr><td>대기</td></tr>"; }
+
+  $("dTitle").textContent=$("docTitle").value;
+  const age=$("pAge").value;
+  $("dName").textContent=`${[...($("pName").value||"")].join(" ")}      ${age?age+"세":""}      ${$("pSex").value}`;
+  if($("pBirth").value){const b=new Date($("pBirth").value);$("dBirth").textContent=`${b.getFullYear()}년  ${b.getMonth()+1}월  ${b.getDate()}일`;}
+  $("dAddr").textContent=$("pAddr").value;
+  $("dDiag").textContent=state.diagnoses.filter(d=>d.name).map(d=>d.name+(d.eye?", "+d.eye:"")).join("\n")||"";
+  $("dVA").textContent=`원거리)  우 안 : ${vaDisplay(state.va.farR)}
+          좌 안 : ${vaDisplay(state.va.farL)}
+
+근거리)  우 안 : ${vaDisplay(state.va.nearR)}
+          좌 안 : ${vaDisplay(state.va.nearL)}`;
+  if(c&&c.useVFS&&(cR.loaded||cL.loaded)){$("dVFRow").style.display="";
+    const parts=[]; if(cR.loaded)parts.push(`우안 ${fmt(cR.vfs)}점`); if(cL.loaded)parts.push(`좌안 ${fmt(cL.vfs)}점`);
+    $("dVF").textContent=`시야점수(${g}${extOn?', 확장':''}) : ${parts.join(' · ')} (정상 100점)`;
+  } else $("dVFRow").style.display="none";
+  $("dSymptom").textContent=$("symptomText").value;
+
+  let mcTxt="",gkTxt="";
+  if(c&&$("useMcbride").checked){
+    mcTxt=`맥브라이드 평가에 의하면 현 상태에서 우안의 시효율 상실도는 ${fmt(c.lossR)}%이고 좌안의 시효율 상실도는 ${fmt(c.lossL)}%이므로 양안의 전체적인 시효율 상실도는 ${fmt(c.binoLoss)}%입니다. 이에 상응하는 노동력 상실도는 ${fmt(c.mc)}%`+
+      (c.adjTerm?`이나 현 연령을 감안한 상기자의 실제적인 노동력 상실도는 ${fmt(c.adj)}%입니다.`:`입니다.`);
+    $("dFormula").innerHTML=c.adjTerm?`<span>${fmt(c.mc)}&nbsp;&nbsp;${c.dir}</span>
+      <span class="frac"><span class="num">${fmt(c.mc)} X 0.5(${c.age}-30)</span><span class="den">100</span></span><span>=&nbsp;${fmt(c.adj)}%</span>`:"";
+  } else $("dFormula").innerHTML="";
+  if(c&&c.gk&&$("useGukbae").checked) gkTxt=`국가배상법 시행령[별표 2]의 신체장해등급과 노동력 상실률표에 의하면 제${c.gk[0]}급의 ${c.gk[1]}항에 해당되어 노동력 상실률은 ${c.gk[3]}%입니다.`;
+  $("dMcbride").textContent=mcTxt; $("dGukbae").textContent=gkTxt;
+
+  if($("issueDate").value){const d=new Date($("issueDate").value);$("dDate").textContent=`${d.getFullYear()}년   ${d.getMonth()+1}월   ${d.getDate()}일`;}
+  $("dHosp").textContent=$("hosp").value; $("dDoc").textContent=[...($("docName").value||"")].join("   "); $("dLic").textContent=$("docLic").value;
+
+  if(c&&$("printTrace").checked){$("dTrace").style.display="";
+    $("dTraceTable").innerHTML=c.trace.map(r=>`<tr><td style="width:42%;padding:3px 6px;border-bottom:1px solid #ccc;vertical-align:top">${r[0]}</td><td style="padding:3px 6px;border-bottom:1px solid #ccc">${r[1]}</td></tr>`).join("");
+  } else $("dTrace").style.display="none";
+}
+
+/* ══════════ Word 저장 ══════════ */
+let docxP=null;
+function loadDocx(){ if(window.docx&&window.docx.Document)return Promise.resolve(window.docx); if(docxP)return docxP;
+  const urls=["https://cdnjs.cloudflare.com/ajax/libs/docx/8.5.0/docx.umd.min.js","https://unpkg.com/docx@8.5.0/build/index.umd.js","https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.js"];
+  docxP=new Promise((res,rej)=>{const t=i=>{if(i>=urls.length){rej(new Error("lib"));return;}
+    const s=document.createElement("script");s.src=urls[i];s.onload=()=>(window.docx&&window.docx.Document)?res(window.docx):t(i+1);s.onerror=()=>t(i+1);document.head.appendChild(s);};t(0);}); return docxP;}
+function saveBlob(b,n){const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download=n;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),5000);}
+async function exportDocx(){
+  const btn=$("docxBtn");btn.disabled=true;btn.textContent="생성 중…";
+  const V=id=>($(id)?.innerText||"").replace(/\u00a0/g," ");
+  const title=V("dTitle");
+  try{
+    const dx=await loadDocx(); const F={font:"Batang",size:25};
+    const P=(t,o={})=>new dx.Paragraph({children:[new dx.TextRun({text:t,...F,...(o.run||{})})],spacing:{after:o.after??160,line:340},alignment:o.align,indent:o.indent});
+    const kids=[new dx.Paragraph({children:[new dx.TextRun({text:title,font:"Batang",size:44,bold:true})],alignment:dx.AlignmentType.CENTER,spacing:{after:600}})];
+    const rows=[["성      명",V("dName")],["생년월일",V("dBirth")],["주      소",V("dAddr")],["",""],["병      명",V("dDiag")],["자각시력",V("dVA")]];
+    if($("dVFRow").style.display!=="none")rows.push(["시야검사",V("dVF")]);
+    rows.push(["",""],["증      상",V("dSymptom")],["",""],["노동력 상실도",V("dMcbride")]);
+    for(const[k,v]of rows){ if(!k&&!v){kids.push(P("",{after:60}));continue;}
+      const ls=(v||"").split("\n"); kids.push(P(`${k}  :  ${ls[0]||""}`)); for(let i=1;i<ls.length;i++)kids.push(P(ls[i],{indent:{left:2200},after:80})); }
+    const fx=$("dFormula").innerText.replace(/\s+/g," ").trim(); if(fx)kids.push(P(fx,{align:dx.AlignmentType.CENTER,after:240}));
+    if(V("dGukbae"))kids.push(P(V("dGukbae"),{indent:{left:2200}}));
+    "안과분야에서 노동력 상실도의 판정에 있어서 직업별로 산정된 문헌이 없습니다.\n위와 같이 감정합니다.".split("\n").forEach(l=>kids.push(P(l,{indent:{left:2200}})));
+    kids.push(P("",{after:400}));
+    [V("dDate"),V("dHosp"),V("dDoc")+" (인)","(의사면허번호:"+V("dLic")+")"].forEach(l=>kids.push(P(l,{align:dx.AlignmentType.RIGHT,after:80})));
+    if($("printTrace").checked&&$("dTrace").style.display!=="none"){
+      kids.push(P("",{after:200})); kids.push(P("[ 산출 근거 ]",{run:{bold:true,size:21}}));
+      const tr=[...$("dTraceTable").querySelectorAll("tr")].map(t=>[...t.children].map(td=>td.innerText));
+      kids.push(new dx.Table({width:{size:100,type:dx.WidthType.PERCENTAGE},rows:tr.map(r=>new dx.TableRow({children:r.map((c,i)=>new dx.TableCell({width:{size:i===0?42:58,type:dx.WidthType.PERCENTAGE},children:[new dx.Paragraph({children:[new dx.TextRun({text:c,font:"Batang",size:20})]})]}))}))}));
+    }
+    const doc=new dx.Document({sections:[{properties:{page:{margin:{top:1250,bottom:1130,left:1130,right:1130}}},children:kids}]});
+    saveBlob(await dx.Packer.toBlob(doc),(title||"후유장해진단서")+".docx");
+  }catch(e){
+    const html=`<html xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><style>body{font-family:Batang,serif;font-size:12.5pt;line-height:1.75}h1{text-align:center;font-size:22pt}.sig{text-align:right;margin-top:40px}</style></head><body>${$("sheet").innerHTML}</body></html>`;
+    saveBlob(new Blob(['\ufeff'+html],{type:"application/msword"}),(title||"후유장해진단서")+".doc");
+    alert("인터넷 연결이 없어 .doc으로 저장했습니다. Word에서 열어 .docx로 다시 저장하면 동일합니다.");
+  }
+  btn.disabled=false;btn.textContent="Word(.docx) 저장";
+}
+
+/* 초기화 */
+$("issueDate").value=new Date().toISOString().slice(0,10);
+renderDiag(); renderVA(); renderTables(); render();
+</script>
+</body>
+</html>

@@ -1,0 +1,7 @@
+{
+  "name": "vf-disability-service",
+  "version": "1.0.0",
+  "private": true,
+  "description": "험프리 시야검사 자동분석 후유장해진단서 서비스",
+  "engines": { "node": ">=18" }
+}
