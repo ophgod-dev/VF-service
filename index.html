@@ -331,10 +331,27 @@ function pick(eye){ $(eye==="R"?"odFile":"osFile").click(); }
 function onPick(inp,eye){
   const f=inp.files[0]; if(!f) return;
   const rd=new FileReader();
-  rd.onload=()=>{ state.upload[eye]=rd.result;
-    const drop=$(eye==="R"?"odDrop":"osDrop"); drop.classList.add("has");
-    $(eye==="R"?"odThumb":"osThumb").innerHTML=`<img class="thumb" src="${rd.result}">`;
-    $("analyzeBtn").disabled=!(state.upload.R||state.upload.L);
+  rd.onload=()=>{
+    const img=new Image();
+    img.onload=()=>{
+      // 판독 속도·안정성을 위해 긴 변 최대 1500px로 축소(숫자 가독성 유지)
+      const MAX=1500; let w=img.width, h=img.height;
+      const scale=Math.min(1, MAX/Math.max(w,h));
+      const cw=Math.round(w*scale), ch=Math.round(h*scale);
+      const cv=document.createElement("canvas"); cv.width=cw; cv.height=ch;
+      const cx=cv.getContext("2d"); cx.fillStyle="#fff"; cx.fillRect(0,0,cw,ch);
+      cx.drawImage(img,0,0,cw,ch);
+      const dataUrl=cv.toDataURL("image/jpeg",0.9);
+      state.upload[eye]=dataUrl;
+      const drop=$(eye==="R"?"odDrop":"osDrop"); drop.classList.add("has");
+      $(eye==="R"?"odThumb":"osThumb").innerHTML=`<img class="thumb" src="${dataUrl}">`;
+      $("analyzeBtn").disabled=!(state.upload.R||state.upload.L);
+    };
+    img.onerror=()=>{ state.upload[eye]=rd.result;
+      const drop=$(eye==="R"?"odDrop":"osDrop"); drop.classList.add("has");
+      $(eye==="R"?"odThumb":"osThumb").innerHTML=`<img class="thumb" src="${rd.result}">`;
+      $("analyzeBtn").disabled=!(state.upload.R||state.upload.L); };
+    img.src=rd.result;
   };
   rd.readAsDataURL(f);
 }
