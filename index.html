@@ -174,20 +174,9 @@ table.edit input{padding:3px 6px;font-size:12px;border-radius:4px}
   </section>
 
   <section class="card">
-    <h2>⑤ 시야점수 · 판정</h2>
-    <div class="row">
-      <div><label class="f">적용 기준</label>
-        <select id="vfsGuide" onchange="render()">
-          <option value="AMA" selected>AMA (미국의사협회)</option>
-          <option value="KAMS">KAMS (대한의학회)</option>
-        </select></div>
-      <div><label class="f">30° 밖 확장</label>
-        <select id="vfsExt" onchange="render()">
-          <option value="on">동축 확장(30° 유효→정상)</option>
-          <option value="off">확장 안 함</option>
-        </select></div>
-    </div>
+    <h2>⑤ 시야점수 · 판정 <span class="tag">Extended AMA HVF</span></h2>
     <div class="check"><input type="checkbox" id="useVFS" checked onchange="render()"><span>시야점수를 상실률에 반영 (시효율 = 시력효율 × VFS/100)</span></div>
+    <div class="hint">채점: AMA 10경선(25°·65°…), 중심 10°까지 2°당 1점·이후 10°당 1점. <b>30°까지 보존된 경선은 정상 골드만 반경으로 확장</b>(Extended HVF). 아래 경선별 표에서 <b>보존 판정·반경을 수정</b>할 수 있습니다.</div>
     <div class="gridwrap" id="gridEditor"></div>
     <div id="meridInputs"></div>
     <div class="calc-live" id="vfsLive">결과지를 분석하면 시야점수가 표시됩니다.</div>
@@ -264,37 +253,51 @@ table.edit input{padding:3px 6px;font-size:12px;border-radius:4px}
 </div>
 
 <script>
-/* ══════════ 기하 · 점수 상수 ══════════ */
-const MERID={KAMS:[0,45,90,135,180,210,240,270,300,330],AMA:[25,65,115,155,195,225,255,285,315,345]};
-const NORM={AMA:{R:[70,50,50,60,60,60,60,70,70,70],L:[60,50,50,70,70,70,70,60,60,60]},
-            KAMS:{R:[80,60,50,60,60,60,60,70,70,70],L:[60,60,50,60,80,70,70,70,60,60]}};
+/* ══════════ 기하 · 점수 상수 (Extended AMA HVF) ══════════ */
+const AMA_MERID=[25,65,115,155,195,225,255,285,315,345];
+const AMA_NORM={R:[70,50,50,60,60,60,60,70,70,70],L:[60,50,50,70,70,70,70,60,60,60]};
 const YROWS=[27,21,15,9,3,-3,-9,-15,-21,-27], XCOLS=[-27,-21,-15,-9,-3,3,9,15,21,27], ROWLEN=[4,6,8,10,10,10,10,8,6,4];
-const HFA_MAX=30;
+const SECTOR=23, EDGE=27, THR=10;
 const rowColStart=n=>(10-n)/2;
 const blankGrid=()=>YROWS.map(()=>Array(10).fill(null));
+const blankOv=()=>Array.from({length:10},()=>({r:null,pres:null})); // 경선별 수정치(null=자동)
 function cellValid(r,c){ if(r<0||r>9) return false; const s=rowColStart(ROWLEN[r]); return c>=s&&c<s+ROWLEN[r]; }
 function placeRow(vals){const n=vals.length,s=rowColStart(n),o=Array(10).fill(null);
   for(let i=0;i<n&&i<10;i++){const v=vals[i];o[s+i]=(v==null||v===""||Number.isNaN(parseFloat(v)))?(v===0||v==="0"?0:null):parseFloat(v);}return o;}
 function scoreAMA(r){ if(r<=0)return 0; return r<=10?r/2:5+(r-10)/10; }
-function scoreKAMS(r){ if(r<=0)return 0; if(r<=10)return r*0.4; if(r<=20)return 4+(r-10)/5; return 6+(r-20)/10; }
-const scoreFn=g=>g==="AMA"?scoreAMA:scoreKAMS;
-function gridToRadii(guide,grid,thr=10,sector=23){
-  const pts=[]; for(let r=0;r<10;r++)for(let c=0;c<10;c++){const v=grid[r][c]; if(v==null)continue; pts.push([XCOLS[c],YROWS[r],v]);}
-  return MERID[guide].map(m=>{let best=0; for(const[x,y,v]of pts){if(v<thr)continue;const e=Math.hypot(x,y);if(!e)continue;
-    let a=(Math.atan2(y,x)*180/Math.PI+360)%360,d=Math.abs(((a-m+180)%360+360)%360-180); if(d<=sector)best=Math.max(best,e);}
-    return Math.min(30,Math.round(best));});
+function gridPoints(grid){ const p=[]; for(let r=0;r<10;r++)for(let c=0;c<10;c++){const v=grid[r][c]; if(v==null)continue; p.push([XCOLS[c],YROWS[r],v]);} return p; }
+// 경선 방향 ±SECTOR 안 10dB이상 최외곽 이심 (측정 반경, 0~30)
+function measuredRadius(pts, ang){ let best=0;
+  for(const[x,y,v] of pts){ if(v<THR)continue; const e=Math.hypot(x,y); if(!e)continue;
+    let a=(Math.atan2(y,x)*180/Math.PI+360)%360, d=Math.abs(((a-ang+180)%360+360)%360-180);
+    if(d<=SECTOR) best=Math.max(best,e); }
+  return Math.min(30, best);
 }
-function computeVFS(guide,eyeKey,radii,extOn){
-  const f=scoreFn(guide),norm=NORM[guide][eyeKey]; let sum=0; const per=[];
-  for(let i=0;i<10;i++){let r=parseFloat(radii[i]); if(!Number.isFinite(r))r=0; let used=r,sub=false;
-    if(extOn&&r>=HFA_MAX){used=norm[i];sub=true;} const s=f(used); per.push({ang:MERID[guide][i],r:used,s,substituted:sub}); sum+=s;}
-  return {vfs:Math.min(100,sum),per,capped:sum>100};
+// 그 경선 방향에서 가장 바깥(이심>=EDGE) 점이 10dB이상이면 '30°까지 보존'
+function preservedTo30(pts, ang){
+  let outer=null;
+  for(const[x,y,v] of pts){ const e=Math.hypot(x,y); if(e<EDGE)continue;
+    let a=(Math.atan2(y,x)*180/Math.PI+360)%360, d=Math.abs(((a-ang+180)%360+360)%360-180);
+    if(d<=SECTOR && (!outer||e>outer[0])) outer=[e,v]; }
+  return outer? outer[1]>=THR : false;
 }
 function hasGrid(eyeKey){ return state.dbGrid[eyeKey].some(row=>row.some(v=>v!=null)); }
-function eyeVFS(guide,eyeKey,extOn){
-  if(!hasGrid(eyeKey)) return {loaded:false,vfs:100,radii:Array(10).fill(0),per:[]};
-  const radii=gridToRadii(guide,state.dbGrid[eyeKey]); const c=computeVFS(guide,eyeKey,radii,extOn);
-  return {loaded:true,vfs:c.vfs,radii,per:c.per,capped:c.capped};
+// Extended AMA HVF 계산 (경선별 자동 + 수정치 반영)
+function eyeVFS(eyeKey){
+  if(!hasGrid(eyeKey)) return {loaded:false,vfs:100,per:[]};
+  const pts=gridPoints(state.dbGrid[eyeKey]), norm=AMA_NORM[eyeKey], ov=state.vfsOv[eyeKey];
+  let sum=0; const per=[];
+  for(let i=0;i<10;i++){
+    const ang=AMA_MERID[i];
+    const autoR=Math.round(measuredRadius(pts,ang));
+    const autoP=preservedTo30(pts,ang);
+    const effP = (ov[i].pres==null)? autoP : ov[i].pres;         // 보존 판정(수정 가능)
+    const effR = (ov[i].r==null)? autoR : ov[i].r;               // 측정 반경(수정 가능)
+    const usedR = effP ? norm[i] : effR;                          // 보존이면 정상 골드만 반경
+    const s = scoreAMA(usedR);
+    sum+=s; per.push({ang,autoR,autoP,effR,effP,usedR,s,edited:(ov[i].r!=null||ov[i].pres!=null)});
+  }
+  return {loaded:true, vfs:Math.min(100,sum), per, capped:sum>100};
 }
 
 /* ══════════ 상태 ══════════ */
@@ -303,6 +306,7 @@ const state={
   diagnoses:[{name:"",eye:"우안"}],
   va:{farR:bVA(),farL:bVA(),nearR:bVA(),nearL:bVA()},
   dbGrid:{R:blankGrid(),L:blankGrid()},
+  vfsOv:{R:blankOv(),L:blankOv()},
   upload:{R:null,L:null},
   vaTable:[[1.0,0],[0.9,5],[0.8,10],[0.7,15],[0.6,20],[0.5,25],[0.4,35],[0.3,45],[0.2,55],[0.15,62],[0.1,70],[0.08,75],[0.06,80],[0.05,85],[0.04,88],[0.03,90],[0.02,92],[0.01,95],[0.0,100]],
   mcTable:[[0,0],[25,24],[50,50],[75,75],[100,100]],
@@ -378,6 +382,7 @@ function applyGridRows(eyeKey,rows){
   rows.slice(0,10).forEach((row,r)=>{ if(!Array.isArray(row))return; const want=ROWLEN[r]; let v=row.slice();
     if(v.length>want)v=v.slice(0,want); while(v.length<want)v.push(null); g[r]=placeRow(v); });
   state.dbGrid[eyeKey]=g;
+  state.vfsOv[eyeKey]=blankOv();   // 새 결과지 → 경선 수정치 초기화
 }
 
 /* ══════════ dB 격자 편집기 (검증·수정용) ══════════ */
@@ -417,40 +422,54 @@ function gridNav(e,eye,r,c){
   else if(e.key==="ArrowDown"){for(let nr=r+1;nr<=9;nr++)if(cellValid(nr,c)){move(nr,c);break;}}
 }
 function refreshGridDisplay(){
-  const g=$("vfsGuide").value, extOn=$("vfsExt").value==="on";
   for(const eye of ["R","L"]){
     if(!hasGrid(eye)) continue;
     for(const [r,c] of VALIDCELLS){ const el=$(inpId(eye,r,c)); if(!el)continue;
       const v=state.dbGrid[eye][r][c];
       if(document.activeElement!==el){const cur=el.value.trim()===""?null:parseInt(el.value,10); if(cur!==v)el.value=v==null?'':v;}
       el.classList.toggle("filled",v!=null&&v!==0); el.classList.toggle("zero",v===0); }
-    const ev=eyeVFS(g,eye,extOn); const b=$("vsbadge_"+eye);
+    const ev=eyeVFS(eye); const b=$("vsbadge_"+eye);
     if(b) b.innerHTML=`VFS <span class="vfs-badge">${fmt(ev.vfs)}점</span>`;
   }
 }
 
-/* ══════════ 파생 반경 · 폴라 ══════════ */
+/* ══════════ 경선별 표(수정 가능) · 폴라 ══════════ */
 function renderMerid(){
-  const g=$("vfsGuide").value, extOn=$("vfsExt").value==="on"; const angs=MERID[g];
-  const block=(eye,label)=>{ const ev=eyeVFS(g,eye,extOn); if(!ev.loaded)return "";
-    const cells=angs.map((a,i)=>{const p=ev.per[i];
-      return `<div class="cell ${p.substituted?'ext':''}"><label>${a}°</label>
-        <div style="text-align:center;padding:3px 0;font-weight:600;color:${p.substituted?'#8A5410':'var(--accent)'}">${fmt(p.r)}°</div></div>`;}).join("");
-    const ext=ev.per.filter(p=>p.substituted).length;
-    return `<div style="margin-top:10px"><label class="f">${label} 자동 반경 → VFS <span class="vfs-badge">${fmt(ev.vfs)}점</span>${ext?` · 확장 ${ext}경선`:''}</label>
-      ${polarSVG(ev)}<div class="merid">${cells}</div></div>`;};
+  const block=(eye,label)=>{ const ev=eyeVFS(eye); if(!ev.loaded)return "";
+    const extN=ev.per.filter(p=>p.effP).length;
+    const rows=ev.per.map((p,i)=>`<tr>
+      <td style="padding:2px 4px;text-align:center">${p.ang}°</td>
+      <td style="padding:2px 4px;text-align:center">
+        <input value="${p.effR}" style="width:44px;text-align:center;padding:2px" inputmode="numeric" ${p.effP?'disabled':''}
+          title="측정 반경(도). 보존 체크 시 정상값 사용" oninput="setOvR('${eye}',${i},this.value)"></td>
+      <td style="padding:2px 4px;text-align:center">
+        <input type="checkbox" ${p.effP?'checked':''} onchange="setOvP('${eye}',${i},this.checked)" title="30°까지 보존(정상 골드만 반경으로 확장)"></td>
+      <td style="padding:2px 4px;text-align:center;color:${p.effP?'#8A5410':'var(--accent)'};font-weight:600">${p.effP?p.usedR+'°(정상)':fmt(p.usedR)+'°'}</td>
+      <td style="padding:2px 4px;text-align:right;font-weight:600">${fmt(p.s)}</td>
+      <td style="padding:2px 4px;text-align:center">${p.edited?`<button class="icon-btn" style="width:22px;height:20px;font-size:11px" title="자동으로 되돌리기" onclick="resetOv('${eye}',${i})">↺</button>`:''}</td>
+    </tr>`).join("");
+    return `<div class="gridcol" style="margin-top:10px">
+      <label class="f">${label} · Extended AMA HVF → <span class="vfs-badge">${fmt(ev.vfs)}점</span>${extN?` · 확장 ${extN}경선`:''}</label>
+      ${polarSVG(ev)}
+      <table class="edit" style="margin-top:4px"><tr>
+        <th style="text-align:center">경선</th><th style="text-align:center">반경°</th><th style="text-align:center">30°보존</th><th style="text-align:center">적용반경</th><th style="text-align:right">점수</th><th></th></tr>${rows}</table>
+      <div class="hint">반경은 자동 측정값이며 직접 고칠 수 있습니다. <b>30°보존</b>을 체크하면 그 경선은 정상 골드만 반경으로 확장됩니다.</div>
+    </div>`;};
   $("meridInputs").innerHTML=block("R","우안(OD)")+block("L","좌안(OS)");
 }
+function setOvR(eye,i,val){ const v=val.trim()===""?null:parseFloat(val); state.vfsOv[eye][i].r=(v==null||Number.isNaN(v))?null:v; render(); }
+function setOvP(eye,i,checked){ state.vfsOv[eye][i].pres=checked; render(); }
+function resetOv(eye,i){ state.vfsOv[eye][i]={r:null,pres:null}; render(); }
 function polarSVG(ev){
   const cx=70,cy=70,R=60,md=90;
-  const pts=ev.per.map(p=>{const rad=p.ang*Math.PI/180,rr=Math.min(p.r,md)/md*R;return [cx+rr*Math.cos(rad),cy-rr*Math.sin(rad),p.substituted];});
+  const pts=ev.per.map(p=>{const rad=p.ang*Math.PI/180,rr=Math.min(p.usedR,md)/md*R;return [cx+rr*Math.cos(rad),cy-rr*Math.sin(rad),p.effP];});
   const poly=pts.map(p=>p[0]+","+p[1]).join(" ");
   const rings=[30,60,90].map(d=>`<circle cx="${cx}" cy="${cy}" r="${d/md*R}" fill="none" stroke="${d===30?'#B4690E':'#E4EBE8'}" stroke-dasharray="${d===30?'3 2':'0'}"/>`).join("");
   const spokes=ev.per.map(p=>{const rad=p.ang*Math.PI/180;return `<line x1="${cx}" y1="${cy}" x2="${cx+R*Math.cos(rad)}" y2="${cy-R*Math.sin(rad)}" stroke="#EBEFED"/>`;}).join("");
   return `<svg class="polar" width="140" height="140" viewBox="0 0 140 140">${rings}${spokes}
     <polygon points="${poly}" fill="rgba(19,111,91,.15)" stroke="var(--accent)" stroke-width="1.5"/>
     ${pts.map(p=>`<circle cx="${p[0]}" cy="${p[1]}" r="2.4" fill="${p[2]?'#B4690E':'var(--accent)'}"/>`).join("")}
-    <text x="4" y="12" font-size="8" fill="#B4690E">···30° 측정한계</text></svg>`;
+    <text x="4" y="12" font-size="8" fill="#B4690E">···30° 측정한계 · 주황=확장</text></svg>`;
 }
 
 /* ══════════ 병명 / 시력 ══════════ */
@@ -488,15 +507,15 @@ function interp(pairs,x){const p=[...pairs].sort((a,b)=>a[0]-b[0]);
 function compute(){
   const T=[]; const R=vaNumeric(state.va.farR),L=vaNumeric(state.va.farL);
   if(!Number.isFinite(R)||!Number.isFinite(L))return null;
-  const g=$("vfsGuide").value,extOn=$("vfsExt").value==="on",useVFS=$("useVFS").checked;
+  const useVFS=$("useVFS").checked;
   T.push(["입력 교정시력(원거리)",`우안 ${R} · 좌안 ${L}`]);
   const vaLossR=interp(state.vaTable,R),vaLossL=interp(state.vaTable,L);
   let effR=100-vaLossR,effL=100-vaLossL;
   T.push(["① 시력 → 시력효율",`우안 ${fmt(effR)}% · 좌안 ${fmt(effL)}%`]);
   let vfsR=null,vfsL=null;
-  if(useVFS){const cR=eyeVFS(g,"R",extOn),cL=eyeVFS(g,"L",extOn); vfsR=cR.vfs;vfsL=cL.vfs;
+  if(useVFS){const cR=eyeVFS("R"),cL=eyeVFS("L"); vfsR=cR.vfs;vfsL=cL.vfs;
     const pR=effR,pL=effL; effR=effR*vfsR/100; effL=effL*vfsL/100;
-    T.push([`② 시야점수 VFS (${g}${extOn?'·확장':''})`,`우안 ${fmt(vfsR)}점${cR.loaded?'':'(격자없음→100)'} · 좌안 ${fmt(vfsL)}점${cL.loaded?'':'(격자없음→100)'}`]);
+    T.push(["② 시야점수 (Extended AMA HVF)",`우안 ${fmt(vfsR)}점${cR.loaded?'':'(미분석→100)'} · 좌안 ${fmt(vfsL)}점${cL.loaded?'':'(미분석→100)'}`]);
     T.push(["② 시효율=시력효율×VFS/100",`우안 ${fmt(pR)}×${fmt(vfsR)}%=${fmt(effR)}% · 좌안 ${fmt(pL)}×${fmt(vfsL)}%=${fmt(effL)}%`]);
   } else T.push(["② 시야점수","반영 안 함"]);
   const lossR=100-effR,lossL=100-effL;
@@ -514,7 +533,7 @@ function compute(){
   if(state.gukbaeManual!=="auto"){const[gg,hh]=state.gukbaeManual.split("-").map(Number);gk=state.gkTable.find(r=>r[0]===gg&&r[1]===hh)||gk;
     T.push(["국배법 등급","수동 지정: "+(gk?`제${gk[0]}급 ${gk[1]}항 (${gk[3]}%)`:"—")]);}
   else if(gk) T.push(["국배법 별표2 (양호안 "+fmt(B)+"·불량안 "+fmt(W)+")",`제${gk[0]}급 ${gk[1]}항 → ${gk[3]}%`]);
-  return {R,L,g,extOn,useVFS,effR,effL,lossR,lossL,binoLoss,mc,age,dir,adjTerm,adj,gk,trace:T};
+  return {R,L,useVFS,effR,effL,lossR,lossL,binoLoss,mc,age,dir,adjTerm,adj,gk,trace:T};
 }
 
 /* ══════════ 표 편집 ══════════ */
@@ -546,9 +565,8 @@ function render(){
   if(!state.ageManual){const a=calcAge();if(Number.isFinite(a))$("pAge").value=a;}
   buildGridEditor(); refreshGridDisplay(); renderMerid();
   const c=compute();
-  const g=$("vfsGuide").value,extOn=$("vfsExt").value==="on";
-  const cR=eyeVFS(g,"R",extOn),cL=eyeVFS(g,"L",extOn);
-  $("vfsLive").innerHTML=`${g}${extOn?'·확장':''} 시야점수 → 우안 <b>${cR.loaded?fmt(cR.vfs)+'점':'미분석'}</b> · 좌안 <b>${cL.loaded?fmt(cL.vfs)+'점':'미분석'}</b>`;
+  const cR=eyeVFS("R"),cL=eyeVFS("L");
+  $("vfsLive").innerHTML=`Extended AMA HVF 시야점수 → 우안 <b>${cR.loaded?fmt(cR.vfs)+'점':'미분석'}</b> · 좌안 <b>${cL.loaded?fmt(cL.vfs)+'점':'미분석'}</b>`;
 
   const sel=$("gukbaeOverride"),cur=state.gukbaeManual;
   sel.innerHTML=`<option value="auto">자동${c&&c.gk?` (제${c.gk[0]}급 ${c.gk[1]}항)`:""}</option>`+
@@ -572,7 +590,7 @@ function render(){
           좌 안 : ${vaDisplay(state.va.nearL)}`;
   if(c&&c.useVFS&&(cR.loaded||cL.loaded)){$("dVFRow").style.display="";
     const parts=[]; if(cR.loaded)parts.push(`우안 ${fmt(cR.vfs)}점`); if(cL.loaded)parts.push(`좌안 ${fmt(cL.vfs)}점`);
-    $("dVF").textContent=`시야점수(${g}${extOn?', 확장':''}) : ${parts.join(' · ')} (정상 100점)`;
+    $("dVF").textContent=`시야점수(Extended AMA HVF) : ${parts.join(' · ')} (정상 100점)`;
   } else $("dVFRow").style.display="none";
   $("dSymptom").textContent=$("symptomText").value;
 
