@@ -132,7 +132,34 @@ table.edit input{padding:3px 6px;font-size:12px;border-radius:4px}
   </div>
 
   <section class="card">
-    <h2>① 험프리 30-2 결과지 업로드 <span class="tag">AI 자동판독</span></h2>
+    <h2>① 인적사항</h2>
+    <div class="row">
+      <div><label class="f">문서 제목</label><select id="docTitle" onchange="render()"><option>후유장해진단서</option><option>장애감정서</option><option>후유장애진단서</option></select></div>
+      <div><label class="f">감정일</label><input type="date" id="issueDate" onchange="render()"></div>
+    </div>
+    <div class="row">
+      <div style="flex:1.4"><label class="f">성명</label><input id="pName" placeholder="홍 길 동" oninput="render()"></div>
+      <div><label class="f">성별</label><select id="pSex" onchange="render()"><option>남자</option><option>여자</option></select></div>
+      <div><label class="f">나이</label><input id="pAge" type="number" oninput="state.ageManual=true;render()"></div>
+    </div>
+    <div class="row"><div><label class="f">생년월일</label><input type="date" id="pBirth" onchange="state.ageManual=false;render()"></div></div>
+    <div class="row"><div><label class="f">주소</label><input id="pAddr" oninput="render()"></div></div>
+  </section>
+
+  <section class="card">
+    <h2>② 병명</h2>
+    <div id="diagList"></div>
+    <button class="btn small" onclick="state.diagnoses.push({name:'',eye:'우안'});renderDiag();render()">+ 병명 추가</button>
+  </section>
+
+  <section class="card">
+    <h2>③ 자각시력 · 굴절</h2>
+    <div id="vaInputs"></div>
+    <div class="hint">표기: 나안 (교정 x sph±S = cyl±C(축))</div>
+  </section>
+
+  <section class="card">
+    <h2>④ 험프리 30-2 결과지 업로드 <span class="tag">AI 자동판독</span></h2>
     <div class="up">
       <div class="updrop" id="odDrop" onclick="pick('R')"><b>우안 (OD)</b><div>결과지 이미지 클릭</div><div id="odThumb"></div></div>
       <div class="updrop" id="osDrop" onclick="pick('L')"><b>좌안 (OS)</b><div>결과지 이미지 클릭</div><div id="osThumb"></div></div>
@@ -147,7 +174,7 @@ table.edit input{padding:3px 6px;font-size:12px;border-radius:4px}
   </section>
 
   <section class="card">
-    <h2>② 시야점수 · 판정</h2>
+    <h2>⑤ 시야점수 · 판정</h2>
     <div class="row">
       <div><label class="f">적용 기준</label>
         <select id="vfsGuide" onchange="render()">
@@ -164,33 +191,6 @@ table.edit input{padding:3px 6px;font-size:12px;border-radius:4px}
     <div class="gridwrap" id="gridEditor"></div>
     <div id="meridInputs"></div>
     <div class="calc-live" id="vfsLive">결과지를 분석하면 시야점수가 표시됩니다.</div>
-  </section>
-
-  <section class="card">
-    <h2>③ 인적사항</h2>
-    <div class="row">
-      <div><label class="f">문서 제목</label><select id="docTitle" onchange="render()"><option>후유장해진단서</option><option>장애감정서</option><option>후유장애진단서</option></select></div>
-      <div><label class="f">감정일</label><input type="date" id="issueDate" onchange="render()"></div>
-    </div>
-    <div class="row">
-      <div style="flex:1.4"><label class="f">성명</label><input id="pName" placeholder="홍 길 동" oninput="render()"></div>
-      <div><label class="f">성별</label><select id="pSex" onchange="render()"><option>남자</option><option>여자</option></select></div>
-      <div><label class="f">나이</label><input id="pAge" type="number" oninput="state.ageManual=true;render()"></div>
-    </div>
-    <div class="row"><div><label class="f">생년월일</label><input type="date" id="pBirth" onchange="state.ageManual=false;render()"></div></div>
-    <div class="row"><div><label class="f">주소</label><input id="pAddr" oninput="render()"></div></div>
-  </section>
-
-  <section class="card">
-    <h2>④ 병명</h2>
-    <div id="diagList"></div>
-    <button class="btn small" onclick="state.diagnoses.push({name:'',eye:'우안'});renderDiag();render()">+ 병명 추가</button>
-  </section>
-
-  <section class="card">
-    <h2>⑤ 자각시력 · 굴절</h2>
-    <div id="vaInputs"></div>
-    <div class="hint">표기: 나안 (교정 x sph±S = cyl±C(축))</div>
   </section>
 
   <section class="card">
