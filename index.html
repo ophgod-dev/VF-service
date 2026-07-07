@@ -111,7 +111,7 @@ table.edit input{padding:3px 6px;font-size:12px;border-radius:4px}
 .sheet [contenteditable]:focus{outline:2px solid var(--accent);background:#F5FAF8}
 .sheet h1.doc-title{text-align:center;font-size:22pt;font-weight:700;letter-spacing:0;margin:0 0 34px}
 .kv{display:flex;margin-bottom:12px}
-.kv .k{width:96px;flex:none;letter-spacing:.02em}
+.kv .k{width:104px;flex:none;letter-spacing:.02em;white-space:nowrap}
 .kv .k.sp2{letter-spacing:2.2em}
 .kv .colon{width:20px;flex:none}
 .kv .v{flex:1;white-space:pre-wrap}
@@ -690,14 +690,15 @@ async function exportDocx(){
   const V=id=>($(id)?.innerText||"").replace(/\u00a0/g," ");
   const title=V("dTitle");
   try{
-    const dx=await loadDocx(); const F={font:"Batang",size:25};
+    const dx=await loadDocx(); const F={font:"Batang",size:24};
+    const nb=s=>String(s).replace(/ /g,"\u00A0").split("").join("\u2060"); // 줄바꿈 방지(라벨용)
     const P=(t,o={})=>new dx.Paragraph({children:[new dx.TextRun({text:t,...F,...(o.run||{})})],spacing:{after:o.after??160,line:340},alignment:o.align,indent:o.indent});
     const kids=[new dx.Paragraph({children:[new dx.TextRun({text:title,font:"Batang",size:44,bold:true})],alignment:dx.AlignmentType.CENTER,spacing:{after:600}})];
     const rows=[["성명",V("dName")],["생년월일",V("dBirth")],["주소",V("dAddr")],["",""],["병명",V("dDiag")],["자각시력",V("dVA")]];
     if($("dVFRow").style.display!=="none")rows.push(["시야검사",V("dVF")]);
     rows.push(["",""],["증상",V("dSymptom")],["",""],["노동력 상실도",V("dMcbride")]);
     for(const[k,v]of rows){ if(!k&&!v){kids.push(P("",{after:60}));continue;}
-      const ls=(v||"").split("\n"); kids.push(P(`${k}  :  ${ls[0]||""}`)); for(let i=1;i<ls.length;i++)kids.push(P(ls[i],{indent:{left:2200},after:80})); }
+      const ls=(v||"").split("\n"); kids.push(P(`${nb(k)}  :  ${ls[0]||""}`)); for(let i=1;i<ls.length;i++)kids.push(P(ls[i],{indent:{left:2200},after:80})); }
     // 나이 보정 분수 수식 (Word 진짜 분수)
     const c=compute();
     if(c && c.adjTerm){
@@ -718,7 +719,7 @@ async function exportDocx(){
       const tr=[...$("dTraceTable").querySelectorAll("tr")].map(t=>[...t.children].map(td=>td.innerText));
       kids.push(new dx.Table({width:{size:100,type:dx.WidthType.PERCENTAGE},rows:tr.map(r=>new dx.TableRow({children:r.map((c,i)=>new dx.TableCell({width:{size:i===0?42:58,type:dx.WidthType.PERCENTAGE},children:[new dx.Paragraph({children:[new dx.TextRun({text:c,font:"Batang",size:20})]})]}))}))}));
     }
-    const doc=new dx.Document({sections:[{properties:{page:{margin:{top:1250,bottom:1130,left:1130,right:1130}}},children:kids}]});
+    const doc=new dx.Document({styles:{default:{document:{run:{size:24,font:"Batang"}}}},sections:[{properties:{page:{margin:{top:1250,bottom:1130,left:1130,right:1130}}},children:kids}]});
     saveBlob(await dx.Packer.toBlob(doc),(title||"후유장해진단서")+".docx");
   }catch(e){
     const html=`<html xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><style>body{font-family:Batang,serif;font-size:12.5pt;line-height:1.75}h1{text-align:center;font-size:22pt}.sig{text-align:right;margin-top:40px}</style></head><body>${$("sheet").innerHTML}</body></html>`;
