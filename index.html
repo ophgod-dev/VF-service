@@ -283,9 +283,9 @@ function placeRow(vals){const n=vals.length,s=rowColStart(n),o=Array(10).fill(nu
   for(let i=0;i<n&&i<10;i++){const v=vals[i];o[s+i]=(v==null||v===""||Number.isNaN(parseFloat(v)))?(v===0||v==="0"?0:null):parseFloat(v);}return o;}
 function scoreAMA(r){ if(r<=0)return 0; return r<=10?r/2:5+(r-10)/10; }
 function gridPoints(grid){ const p=[]; for(let r=0;r<10;r++)for(let c=0;c<10;c++){const v=grid[r][c]; if(v==null)continue; p.push([XCOLS[c],YROWS[r],v]);} return p; }
-// 논문 충실 반올림: 중심 10° 이내는 정수(채점 2°/1점), 10° 초과는 10° 단위 반올림
+// 논문 충실 반올림: 중심 10° 이내는 2° 단위(채점 2°/1점), 10° 초과는 10° 단위
 function snapRadius(r){
-  if(r<=10) return Math.round(r);
+  if(r<=10) return Math.round(r/2)*2;
   return Math.round(r/10)*10;
 }
 // 경선 방향 ±SECTOR 안 10dB이상 최외곽 이심 (측정 반경, 0~30 → 눈금 반올림)
