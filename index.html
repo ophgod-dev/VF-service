@@ -123,9 +123,9 @@ table.edit input{padding:3px 6px;font-size:12px;border-radius:4px}
 @media print{
   body{background:#fff}.tools,.stage-note,.masthead{display:none!important}
   .app{display:block}.stage{padding:0;height:auto;overflow:visible}
-  .sheet{box-shadow:none;width:auto;min-height:auto;padding:0;margin:0}
+  .sheet{box-shadow:none;width:auto;min-height:auto;margin:0;padding:20mm}
   .sheet [contenteditable]:hover{outline:none}
-  @page{size:A4;margin:22mm 20mm}
+  @page{size:A4;margin:0}
 }
 </style>
 </head>
@@ -693,12 +693,22 @@ async function exportDocx(){
     const dx=await loadDocx(); const F={font:"Batang",size:25};
     const P=(t,o={})=>new dx.Paragraph({children:[new dx.TextRun({text:t,...F,...(o.run||{})})],spacing:{after:o.after??160,line:340},alignment:o.align,indent:o.indent});
     const kids=[new dx.Paragraph({children:[new dx.TextRun({text:title,font:"Batang",size:44,bold:true})],alignment:dx.AlignmentType.CENTER,spacing:{after:600}})];
-    const rows=[["성      명",V("dName")],["생년월일",V("dBirth")],["주      소",V("dAddr")],["",""],["병      명",V("dDiag")],["자각시력",V("dVA")]];
+    const rows=[["성명",V("dName")],["생년월일",V("dBirth")],["주소",V("dAddr")],["",""],["병명",V("dDiag")],["자각시력",V("dVA")]];
     if($("dVFRow").style.display!=="none")rows.push(["시야검사",V("dVF")]);
-    rows.push(["",""],["증      상",V("dSymptom")],["",""],["노동력 상실도",V("dMcbride")]);
+    rows.push(["",""],["증상",V("dSymptom")],["",""],["노동력 상실도",V("dMcbride")]);
     for(const[k,v]of rows){ if(!k&&!v){kids.push(P("",{after:60}));continue;}
       const ls=(v||"").split("\n"); kids.push(P(`${k}  :  ${ls[0]||""}`)); for(let i=1;i<ls.length;i++)kids.push(P(ls[i],{indent:{left:2200},after:80})); }
-    const fx=$("dFormula").innerText.replace(/\s+/g," ").trim(); if(fx)kids.push(P(fx,{align:dx.AlignmentType.CENTER,after:240}));
+    // 나이 보정 분수 수식 (Word 진짜 분수)
+    const c=compute();
+    if(c && c.adjTerm){
+      kids.push(new dx.Paragraph({alignment:dx.AlignmentType.CENTER,spacing:{after:240,line:340},children:[
+        new dx.Math({children:[
+          new dx.MathRun(`${fmt(c.mc)} ${c.dir==='-'?'−':'+'} `),
+          new dx.MathFraction({numerator:[new dx.MathRun(`${fmt(c.mc)}×0.5×(${c.age}−30)`)],denominator:[new dx.MathRun("100")]}),
+          new dx.MathRun(` = ${fmt(c.adj)}%`)
+        ]})
+      ]}));
+    }
     if(V("dGukbae"))kids.push(P(V("dGukbae"),{indent:{left:2200}}));
     "안과분야에서 노동력 상실도의 판정에 있어서 직업별로 산정된 문헌이 없습니다.\n위와 같이 감정합니다.".split("\n").forEach(l=>kids.push(P(l,{indent:{left:2200}})));
     kids.push(P("",{after:400}));
