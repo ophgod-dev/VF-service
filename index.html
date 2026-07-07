@@ -68,8 +68,8 @@ label.f{display:block;font-size:11px;color:var(--sub);margin-bottom:3px;font-wei
 .g302 td{padding:1px;text-align:center}
 .g302 input{width:30px;height:26px;text-align:center;padding:0;font-size:12px;border:1px solid var(--line);border-radius:4px}
 .g302 input:focus{outline:2px solid var(--accent);border-color:var(--accent);background:#F4FAF8}
-.g302 input.filled{background:#F0F6F4;font-weight:600}
-.g302 input.zero{color:var(--red)}
+.g302 input.seen{background:#F0F6F4;font-weight:600}
+.g302 input.low{background:#fff;color:#B0392F}
 .g302 .spacer{width:30px;height:26px}
 .axisrow td{border-top:1.5px solid #C6D0CC!important}
 .eyehdr{display:flex;justify-content:space-between;align-items:center;margin:12px 0 2px}
@@ -274,7 +274,7 @@ table.edit input{padding:3px 6px;font-size:12px;border-radius:4px}
 const AMA_MERID=[25,65,115,155,195,225,255,285,315,345];
 const AMA_NORM={R:[70,50,50,60,60,60,60,70,70,70],L:[60,50,50,70,70,70,70,60,60,60]};
 const YROWS=[27,21,15,9,3,-3,-9,-15,-21,-27], XCOLS=[-27,-21,-15,-9,-3,3,9,15,21,27], ROWLEN=[4,6,8,10,10,10,10,8,6,4];
-const SECTOR=23, EDGE=27, THR=10;
+const EDGE=28, THR=10, STEP=0.5, INFL=8.5;   // 방사 보간: 측정한계 이심, 임계 dB, 이동 간격, 보간 영향반경
 const rowColStart=n=>(10-n)/2;
 const blankGrid=()=>YROWS.map(()=>Array(10).fill(null));
 const blankOv=()=>Array.from({length:10},()=>({r:null,pres:null})); // 경선별 수정치(null=자동)
@@ -288,20 +288,30 @@ function snapRadius(r){
   if(r<=10) return Math.round(r/2)*2;
   return Math.round(r/10)*10;
 }
-// 경선 방향 ±SECTOR 안 10dB이상 최외곽 이심 (측정 반경, 0~30 → 눈금 반올림)
-function measuredRadius(pts, ang){ let best=0;
-  for(const[x,y,v] of pts){ if(v<THR)continue; const e=Math.hypot(x,y); if(!e)continue;
-    let a=(Math.atan2(y,x)*180/Math.PI+360)%360, d=Math.abs(((a-ang+180)%360+360)%360-180);
-    if(d<=SECTOR) best=Math.max(best,e); }
-  return snapRadius(Math.min(30, best));
+// 좌표 보간: 임의 지점(px,py)의 dB를 주변 실측점의 역거리가중으로 추정
+function dbAt(pts, px, py){
+  let num=0, den=0, nd=1e9, nearest=0;
+  for(const [x,y,v] of pts){ const d=Math.hypot(px-x,py-y);
+    if(d<nd){nd=d;nearest=v;}
+    if(d<1e-9) return v;
+    if(d>INFL) continue;
+    const w=1/(d*d); num+=w*v; den+=w; }
+  return den>0? num/den : nearest;
 }
-// 그 경선 방향에서 가장 바깥(이심>=EDGE) 점이 10dB이상이면 '30°까지 보존'
+// 방사 보간: 경선 방향으로 중심→바깥 이동하며 10dB 이상 연속되는 최대 이심 (0~30)
+function measuredRadius(pts, ang){
+  const t=ang*Math.PI/180, cx=Math.cos(t), cy=Math.sin(t);
+  let last=0;
+  for(let r=STEP; r<=30+1e-9; r+=STEP){
+    if(dbAt(pts, r*cx, r*cy) >= THR) last=r;
+    else if(r>3) break;          // 중심 3° 이후 10dB 미만 만나면 경계
+  }
+  return snapRadius(Math.min(30, last));
+}
+// 30° 보존: 그 경선 방향 보간 반경이 측정한계(≈30°)까지 유효한가
 function preservedTo30(pts, ang){
-  let outer=null;
-  for(const[x,y,v] of pts){ const e=Math.hypot(x,y); if(e<EDGE)continue;
-    let a=(Math.atan2(y,x)*180/Math.PI+360)%360, d=Math.abs(((a-ang+180)%360+360)%360-180);
-    if(d<=SECTOR && (!outer||e>outer[0])) outer=[e,v]; }
-  return outer? outer[1]>=THR : false;
+  const t=ang*Math.PI/180, cx=Math.cos(t), cy=Math.sin(t);
+  return dbAt(pts, EDGE*cx, EDGE*cy) >= THR && dbAt(pts, 29*cx, 29*cy) >= THR;
 }
 function hasGrid(eyeKey){ return state.dbGrid[eyeKey].some(row=>row.some(v=>v!=null)); }
 // Extended AMA HVF 계산 (경선별 자동 + 수정치 반영)
@@ -473,7 +483,7 @@ function refreshActive(){
   for(const [r,c] of VALIDCELLS){ const el=$(inpId(eye,r,c)); if(!el)continue;
     const v=state.dbGrid[eye][r][c];
     if(document.activeElement!==el){const cur=el.value.trim()===""?null:parseInt(el.value,10); if(cur!==v)el.value=v==null?'':v;}
-    el.classList.toggle("filled",v!=null&&v!==0); el.classList.toggle("zero",v===0); }
+    el.classList.toggle("seen",v!=null&&v>=THR); el.classList.toggle("low",v!=null&&v<THR); }
   const ev=eyeVFS(eye), b=$("vsbadge");
   if(b) b.innerHTML=`VFS <span class="vfs-badge">${fmt(ev.vfs)}점</span>`;
   const pm=$("paneMerid"); if(pm) pm.innerHTML=meridBlock(eye);
@@ -481,8 +491,8 @@ function refreshActive(){
 function onDbInput(eye,r,c,val){
   const v=val.trim()===""?null:parseInt(val,10);
   state.dbGrid[eye][r][c]=(v==null||Number.isNaN(v))?null:v;
-  const el=$(inpId(eye,r,c)); el.classList.toggle("filled",state.dbGrid[eye][r][c]!=null&&state.dbGrid[eye][r][c]!==0);
-  el.classList.toggle("zero",state.dbGrid[eye][r][c]===0); render();
+  const el=$(inpId(eye,r,c)); const nv=state.dbGrid[eye][r][c];
+  el.classList.toggle("seen",nv!=null&&nv>=THR); el.classList.toggle("low",nv!=null&&nv<THR); render();
 }
 function gridNav(e,eye,r,c){
   const move=(nr,nc)=>{const t=$(inpId(eye,nr,nc)); if(t){t.focus();t.select&&t.select();e.preventDefault();return true;}return false;};
