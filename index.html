@@ -61,6 +61,10 @@ label.f{display:block;font-size:11px;color:var(--sub);margin-bottom:3px;font-wei
 @media (prefers-reduced-motion:reduce){.spin{animation:none}}
 /* 30-2 격자 */
 .g302{border-collapse:collapse;margin:4px 0}
+.grid302-wrap{position:relative;display:inline-block}
+.grid302-wrap .merid-ov{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;overflow:hidden}
+.grid302-wrap .merid-lbl{position:absolute;font-size:9px;font-weight:700;color:#B4690E;
+  transform:translate(-50%,-50%);pointer-events:none;background:rgba(255,255,255,.6);border-radius:3px;padding:0 1px}
 .g302 td{padding:1px;text-align:center}
 .g302 input{width:30px;height:26px;text-align:center;padding:0;font-size:12px;border:1px solid var(--line);border-radius:4px}
 .g302 input:focus{outline:2px solid var(--accent);border-color:var(--accent);background:#F4FAF8}
@@ -440,15 +444,30 @@ function renderEyePane(){
     grows+=`<tr class="${r===5?'axisrow':''}">${tds}</tr>`; }
   $("eyePane").innerHTML=`
     <div class="vf-sub">① 실제 결과지</div>${img}
-    <div class="vf-sub">② OCR dB 격자 — 원본과 대조해 수정</div>
+    <div class="vf-sub">② OCR dB 격자 — 원본과 대조해 수정 <span style="color:#B4690E;font-weight:700">· 주황선=AMA 경선</span></div>
     <div class="eyehdr"><span class="lbl">${label}</span><span class="vs" id="vsbadge"></span></div>
-    <table class="g302"><tbody>${grows}</tbody></table>
+    <div class="grid302-wrap"><table class="g302"><tbody>${grows}</tbody></table>${meridOverlay()}</div>
     <div class="vf-sub">③ 경선 점수 · Extended AMA HVF</div>
     <div id="paneMerid"></div>`;
   $("eyePane").dataset.eye=eye;
   refreshActive();
 }
-// 격자 값/클래스 + 경선표 + 배지 갱신(격자 입력 포커스 유지)
+// 격자 위 AMA 경선 오버레이 (도→격자비율 매핑, 셀 정렬 유지)
+function meridOverlay(){
+  // 도(dx,dy: -30..30) → 0..100 : X=50*(1+dx/30), Y=50*(1-dy/30)
+  const lines=AMA_MERID.map(a=>{
+    const t=a*Math.PI/180;
+    const x2=50+80*Math.cos(t), y2=50-80*Math.sin(t);
+    return `<line x1="50" y1="50" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="rgba(180,105,14,.35)" stroke-width="0.6"/>`;
+  }).join("");
+  const labels=AMA_MERID.map(a=>{
+    const t=a*Math.PI/180;
+    const lx=50+46*Math.cos(t), ly=50-46*Math.sin(t);
+    return `<span class="merid-lbl" style="left:${lx.toFixed(1)}%;top:${ly.toFixed(1)}%">${a}°</span>`;
+  }).join("");
+  return `<svg class="merid-ov" viewBox="0 0 100 100" preserveAspectRatio="none">
+    <circle cx="50" cy="50" r="1.4" fill="rgba(180,105,14,.5)"/>${lines}</svg>${labels}`;
+}
 function refreshActive(){
   const eye=state.eye; if(!hasGrid(eye))return;
   for(const [r,c] of VALIDCELLS){ const el=$(inpId(eye,r,c)); if(!el)continue;
